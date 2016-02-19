@@ -1,0 +1,12 @@
+Kord Smith 8-group library for edits
+group upper bound region
+1 2.000E+7 fast
+2 2.000E+4 resonance
+3 1.000E+4 resonance
+4 1.500E+2 resonance
+5 5.000E+1 resonance
+6 3.000E+1 resonance
+7 1.000E+1 resonance
+8 1.000E+0 thermal
+9 1.000E-5 thermal
+

@@ -1,0 +1,8 @@
+CASMO 5-group library for edits
+group upper bound region
+1 2.000E+7 fast
+2 8.210E+5 fast
+3 9.118E+3 resonance
+4 9.877E+0 resonance
+5 6.25E0-1 thermal
+6 1.000E-5 thermal

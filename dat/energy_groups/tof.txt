@@ -1,0 +1,4 @@
+TOF group boundaries
+group upper bound region
+1 1.00000E+07 fast
+2 5.00000E+04 fast

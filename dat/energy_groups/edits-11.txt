@@ -1,0 +1,15 @@
+Kord Smith-inspired 11-group library for edits
+group upper bound region
+1 2.000E+7 fast
+2 1.000E+4 resonance
+3 2.500E+3 mine
+4 3.650E+2 mine
+5 1.500E+2 resonance
+6 5.000E+1 resonance
+7 3.000E+1 resonance
+8 9.877E+0 resonance
+9 4.200E+0 mine
+10 6.250E-1 thermal
+11 1.000E-1 thermal
+12 1.000E-5 thermal
+

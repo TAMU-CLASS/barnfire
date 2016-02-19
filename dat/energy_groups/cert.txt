@@ -1,0 +1,4 @@
+CERT high-energy group boundaries
+group upper bound region
+1 1.40000E+07 fast
+2 1.00000E+06 fast

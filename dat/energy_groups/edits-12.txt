@@ -1,0 +1,16 @@
+SHEM-hierarchical 12-group library for edits
+group upper bound region
+1  2.00000E+7 fast (Common SCALE and ENDF maximum energy)
+2  1.40000E+5 fast (SHEM boundary near U-238 upper URR point of 1.49E5)
+3  2.26994E+4 resonance (SHEM boundary near U-238 upper RRR point of 2.0E4)
+4  9.11881E+3 resonance (SHEM and Casmo boundary)
+5  2.08410E+3 resonance (SHEM boundary near the U-235 upper RRR point of 2.25E3)
+6  5.39204E+2 resonance (SHEM boundary mid-way between the neighboring points)
+7  1.54176E+2 resonance (SHEM boundary near Kord Smith point of 1.5E2)
+8  5.17847E+1 resonance (SHEM boundary near Kord Smith point of 5.0E1)
+9  2.78852E+1 resonance (SHEM boundary near Kord Smith point of 3.0E1)
+10 9.50002E+0 resonance (SHEM boundary near the Casmo point of 9.877E0)
+11 4.21983E+0 resonance (SHEM boundary near the thermal boundary of 4.2E0)
+12 6.24999E-1 thermal (SHEM boundary, Pu-239 low-lying resonance and Cd-113 cut-off)
+-1 1.00000E-5 thermal (Common SCALE and GROUPR minimum energy)
+
