@@ -50,7 +50,7 @@ Using the Python codes requires you have the following installed on your system:
 * [uncertainties](https://pypi.python.org/pypi/uncertainties/) (2.4.6 or later)
 * [nuclide-data](https://github.com/attom/nuclide-data)
 * [iapws](https://github.com/jjgomera/iapws/) (steam tables, used in [materials\_materials.py](src/materials_materials.py))
-* [NJOY](http://t2.lanl.gov/nis/codes/njoy99/) (used with [materials\_njoy.py](src/materials_njoy.py), [write\_njoy.py](src/write_njoy.py), [Readgroupr.py](src/Readgroupr.py))
+* [NJOY99.364](http://t2.lanl.gov/nis/codes/njoy99/) (used with [materials\_njoy.py](src/materials_njoy.py), [write\_njoy.py](src/write_njoy.py), [Readgroupr.py](src/Readgroupr.py))
 
 ### Examples ###
 
@@ -98,7 +98,7 @@ cd ..
 
   * `SCRATCH_BARN` will house your output cross sections and other temporary files
   * `ENDF` will be where the raw ENDF/B and thermal ENDF/B files are housed
-  * `NJOY` points to the directory with `xnjoy` (Currently, NJOY99 is required)
+  * `NJOY` points to the directory with `xnjoy` (Currently, NJOY99 patched to v364 is required)
 
 
 * Peruse [directories.py](src/directories.py) and be sure it is pointing to the proper locations on your system
