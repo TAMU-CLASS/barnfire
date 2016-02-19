@@ -30,6 +30,8 @@ def get_root_directories():
     # This directory should contain 'xnjoy', the NJOY executable:
     # If this fails, you probably did not export the variable NJOY:
     njoyDirr = os.path.abspath(os.environ['NJOY'])
+    if os.path.isfile(njoyDirr):
+        njoyDirr = os.path.dirname(njoyDirr)
     #
     dirDict['head'] = headDirr
     dirDict['scratch'] = scratchDirr
