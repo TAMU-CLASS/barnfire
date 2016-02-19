@@ -93,7 +93,7 @@ def copy_xnjoy():
 def make_endf_directory():
     dirDict = get_common_directories()
     try_mkdir(dirDict['endf'])
-    
+
 def copy_thermal_endf_xs():
     dirDict = get_common_directories()
     sourceDirr = dirDict['thermalXSSource']
@@ -105,6 +105,21 @@ def copy_common_group_structures():
     sourceDirr = dirDict['common_group_structures']
     destinationDirr = dirDict['dat/energy_groups']
     copy_contents(sourceDirr, destinationDirr)
+
+def copy_xs_script(callingFile):
+    '''If callingFile is a file, copy it to scratch to maintain a record of
+    how the XS were created'''
+    if callingFile is None:
+        return
+    callingFile = os.path.abspath(callingFile)
+    dirDict = get_common_directories()
+    outPath = os.path.join(dirDict['scratch'], 'script_sav_00.sh')
+    i = 0
+    while os.path.isfile(outPath):
+        outPath = os.path.join(dirDict['scratch'], 'script_sav_{:02}.sh'.format(i))
+        i += 1
+    if os.path.isfile(callingFile):
+        try_cp(callingFile, outPath)
 
 #####################################################################################
 def try_mkdir(dirr):

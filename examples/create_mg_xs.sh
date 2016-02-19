@@ -49,7 +49,7 @@ scriptdir=`pwd`
 srcdir=../src
 cd $srcdir
 srcdir=`pwd`
-./Initialize.py
+./Initialize.py $scriptdir $0
 # Step 1: Generate the NJOY inputs
 ./materials.py -m ${mList[*]} -G $G -L $L -v
 # Step 2: Run NJOY to generate the PENDF files from ENDF files.
