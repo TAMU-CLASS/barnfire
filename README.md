@@ -1,5 +1,5 @@
 # barnfire #
-## Cross-Section Generation Framework <br> Texas A&M Unversity: <br> Center for LArge-Scale Scientific Simulations
+## Cross-Section Generation Framework <br> Texas A&M University: <br> Center for LArge-Scale Scientific Simulations
 
 
 This repository houses several scripts to generate nuclear cross sections used in computational neutron transport. Beginning with ENDF/B files, the scripts allow a user to generate consistent MG (multigroup), FEDS (see below), and continuous-energy cross sections. Currently, [NJOY](http://t2.lanl.gov/nis/codes/njoy99/) is used to do most of the heavy-lifting. MG/FEDS cross sections are generated in PDT (see below) format. Continuous-energy cross sections are generated in the ACE format. 
