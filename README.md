@@ -25,7 +25,7 @@ PDT is a massively-parallel discrete-ordinates research transport code under dev
 
 ### License ###
 
-barnfire is distributed under the ??? license
+barnfire is distributed under the MIT license
 
 
 
