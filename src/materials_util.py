@@ -70,7 +70,8 @@ def get_inelastic_thermal_mt_list():
 
 def get_thermal_short2mat_dict():
     '''Return a dict that maps thermal XS shortname to thermal mat. See THERMR in NJOY manual.'''
-    return {'free': 0, 'hh2o': 1, 'hzrhinel': 7, 'graphinel': 31, 'ouo2inel': 75, 'alinel': 45, 'zrzrhinel': 58, 'uuo2inel': 48}
+    # Manuals say Al is material 45, but the data file has material 53
+    return {'free': 0, 'hh2o': 1, 'hzrhinel': 7, 'graphinel': 31, 'ouo2inel': 75, 'alinel': 53, 'zrzrhinel': 58, 'uuo2inel': 48}
 
 ###############################################################################
 def print_newline(verbosity=False):

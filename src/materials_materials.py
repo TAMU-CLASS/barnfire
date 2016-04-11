@@ -25,7 +25,7 @@ import materials_util as util
 
 ###############################################################################
 def get_materials_name2function_dict():
-    return {'hpu': get_hpu_slurry_material, 'hheu': get_hheu_slurry_material, 'hleu': get_hleu_slurry_material, 'puMetal': get_pu_metal_material, 'puMetalHot': get_hot_pu_metal_material, 'uMetal': get_u_metal_material, 'uo2ColdPin': get_cold_pin_uo2_material, 'uo2Cold': get_cold_uo2_material,  'uo2InnerHot': get_inner_hot_uo2_material, 'uo2MiddleHot': get_middle_hot_uo2_material, 'uo2OuterHot': get_outer_hot_uo2_material, 'moxCold': get_cold_mox_material, 'moxInnerHot': get_inner_hot_mox_material, 'moxMiddleHot': get_middle_hot_mox_material, 'moxOuterHot': get_outer_hot_mox_material, 'h2oCold': get_cold_h2o_material, 'h2oHot': get_hot_h2o_material, 'graphite': get_graphite_material, 'clowMOX': get_c5g7_low_mox_material, 'cmedMOX': get_c5g7_med_mox_material, 'chighMOX': get_c5g7_high_mox_material, 'cUO2': get_c5g7_uo2_material, 'cMOD': get_c5g7_moderator_material, 'cGUIDE': get_c5g7_guide_tube_material, 'cFCHAMBER': get_c5g7_fission_chamber_material, 'cCR': get_c5g7_control_rod_material, 'tFUEL': get_triga_fuel_material, 'tZIRC': get_triga_zirconium_material, 'tCLAD': get_triga_clad_material, 'tMOD': get_triga_moderator_material, 'tBORATEDGRAPHITE': get_triga_borated_graphite_material, 'tB4C': get_triga_b4c_material, 'tGRAPHITE': get_triga_graphite_material, 'tAIRTUBE': get_triga_air_tube_material, 'tIRRADIATIONTUBE': get_triga_irradiation_tube_material, 'iron': get_iron_material, 'thickiron': get_thick_iron_material, 'kFUEL': get_kord_fuel_material, 'kRFUEL': get_kord_rod_fuel_material, 'kEFUEL': get_kord_enriched_fuel_material, 'kCLAD': get_kord_clad_material, 'kZR': get_kord_zirconium_material, 'kMOD': get_kord_moderator_material, 'kREFUEL': get_kord_enriched_rod_fuel_material, 'kRMFUEL': get_kord_mox_rod_fuel_material, 'debFUEL': get_bruss_enriched_rod_fuel_material}
+    return {'hpu': get_hpu_slurry_material, 'hheu': get_hheu_slurry_material, 'hleu': get_hleu_slurry_material, 'puMetal': get_pu_metal_material, 'puMetalHot': get_hot_pu_metal_material, 'uMetal': get_u_metal_material, 'uo2ColdPin': get_cold_pin_uo2_material, 'uo2Cold': get_cold_uo2_material,  'uo2InnerHot': get_inner_hot_uo2_material, 'uo2MiddleHot': get_middle_hot_uo2_material, 'uo2OuterHot': get_outer_hot_uo2_material, 'moxCold': get_cold_mox_material, 'moxInnerHot': get_inner_hot_mox_material, 'moxMiddleHot': get_middle_hot_mox_material, 'moxOuterHot': get_outer_hot_mox_material, 'h2oCold': get_cold_h2o_material, 'h2oHot': get_hot_h2o_material, 'graphite': get_graphite_material, 'clowMOX': get_c5g7_low_mox_material, 'cmedMOX': get_c5g7_med_mox_material, 'chighMOX': get_c5g7_high_mox_material, 'cUO2': get_c5g7_uo2_material, 'cMOD': get_c5g7_moderator_material, 'cGUIDE': get_c5g7_guide_tube_material, 'cFCHAMBER': get_c5g7_fission_chamber_material, 'cCR': get_c5g7_control_rod_material, 'tFUEL': get_triga_fuel_material, 'tZIRC': get_triga_zirconium_material, 'tCLAD': get_triga_clad_material, 'tMOD': get_triga_moderator_material, 'tBORATEDGRAPHITE': get_triga_borated_graphite_material, 'tB4C': get_triga_b4c_material, 'tGRAPHITE': get_triga_graphite_material, 'tAIRTUBE': get_triga_air_tube_material, 'tIRRADIATIONTUBE': get_triga_irradiation_tube_material, 'tGRIDPLATE': get_triga_grid_plate_material, 'iron': get_iron_material, 'thickiron': get_thick_iron_material, 'kFUEL': get_kord_fuel_material, 'kRFUEL': get_kord_rod_fuel_material, 'kEFUEL': get_kord_enriched_fuel_material, 'kCLAD': get_kord_clad_material, 'kZR': get_kord_zirconium_material, 'kMOD': get_kord_moderator_material, 'kREFUEL': get_kord_enriched_rod_fuel_material, 'kRMFUEL': get_kord_mox_rod_fuel_material, 'debFUEL': get_bruss_enriched_rod_fuel_material}
 
 ###############################################################################
 
@@ -786,6 +786,29 @@ def get_triga_air_tube_material():
         elemAtomFracDict=elemAtomFracDict, atomDensity=atomDensity)
     return material
 
+def get_triga_grid_plate_material():
+    shortName = 'tGRIDPLATE'
+    longName = 'structural Al'
+    #massDensity = 2.7 # g/cc
+    atomDensity = 0.059195 #a/b-cm
+    fuelRadius = 10. #cm (complete guess)
+    temperature = 293.6 #K
+    thermalOpt = 'al'
+    #thermalOpt = 'free'
+    elemAtomFracDict = {'Al': 0.058693, 'Fe': 0.000502}
+    #
+    chordLength = calc_chord_length(fuelRadius)
+    symDict, ZList, ZAList = get_all_isotopes(elemAtomFracDict)
+    abundanceDict = lookup_natl_abundances(ZAList)
+    #
+    material = Material(
+        shortName=shortName, longName=longName,
+        temperature=temperature, thermalOpt=thermalOpt,
+        symDict=symDict, ZList=ZList, ZAList=ZAList,
+        abundanceDict=abundanceDict, chordLength=chordLength,
+        elemAtomFracDict=elemAtomFracDict, atomDensity=atomDensity)
+    return material
+
 
 ###############################################################################
 def get_bruss_enriched_rod_fuel_material():
@@ -1510,11 +1533,11 @@ class Material():
                 if Z == 1:
                     self.thermalXSDict[Z] = ['hh2o']
         elif self.thermalOpt == 'al':
-            for Z in self.Zlist:
+            for Z in self.ZList:
                 if Z == 13:
                     self.thermalXSDict[Z] = ['alinel', 'alelas']
         elif self.thermalOpt == 'fe':
-            for Z in self.Zlist:
+            for Z in self.ZList:
                 if Z == 26:
                     # This XS may only apply to Fe-56, though that is the dominant isotope
                     # This XS may only apply to Fe in a BCC configuration, notably not stainless steel
