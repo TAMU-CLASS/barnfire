@@ -73,6 +73,14 @@ def get_thermal_short2mat_dict():
     # Manuals say Al is material 45, but the data file has material 53
     return {'free': 0, 'hh2o': 1, 'hzrhinel': 7, 'graphinel': 31, 'ouo2inel': 75, 'alinel': 53, 'zrzrhinel': 58, 'uuo2inel': 48}
 
+def get_thermal_short2mcnp_dict():
+    '''Returns a dict that maps thermal XS shortname to MCNP thermal material name. See Appendix G in MCNP manual vol I (this manual is approved for public release).'''
+    return {'hh2o': 'lwtr', 'zrzrhinel': 'zr/h', 'hzrhinel': 'h/zr', 'uuo2inel': 'u/o2', 'ouo2inel': 'o2/u', 'graphinel': 'grph', 'feinel': 'fe56', 'alinel': 'al27'}
+
+def get_thermal_mcnp2zaid_dict():
+    '''Returns a dict that maps MCNP thermal material name to the nuclides that use this thermal option. See Appendix G in MCNP manual vol I.'''
+    return {'lwtr': ['1001'], 'al27': ['13027'], 'fe56': ['26056'], 'grph': ['6000', '6012'], 'h/zr': ['1001'], 'o2/u': ['8016', '8017', '8018'], 'u/o2': ['92238'], 'zr/h': ['40000', '40090', '40091', '40092', '40094', '40096']}
+
 ###############################################################################
 def print_newline(verbosity=False):
     if verbosity:

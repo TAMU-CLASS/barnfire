@@ -677,7 +677,7 @@ def get_alternate_maxwellian_spectrum(E, T):
     return c * np.sqrt(E/T) * np.exp(-E/T)
 
 def convert_K_to_eV(T):
-    return 8.617065E-5 * T
+    return 8.6173324E-5 * T
 
 ###############################################################################
 def get_tolerances(pwResFactor):

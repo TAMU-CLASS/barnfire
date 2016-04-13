@@ -582,6 +582,7 @@ def get_triga_fuel_material():
     atomDensity = 8.71115E-2
     fuelRadius = 1.7920 #cm
     temperature = 296. #K
+    temperatureIndex = 0 # X in .9Xc
     thermalOpt = 'zrh'
     uAtomFractionsDict = {234: 0.000132187, 235: 0.017378221, 236: 0.000194346, 237: 1.0E-24, 238: 0.069406717}
     #npAtomFractionsDict = {237: 1.0E-24, 238: 1.0E-24, 239: 1.0E-24}
@@ -612,7 +613,8 @@ def get_triga_fuel_material():
         temperature=temperature, thermalOpt=thermalOpt,
         symDict=symDict, ZList=ZList, ZAList=ZAList,
         abundanceDict=abundanceDict, chordLength=chordLength,
-        elemAtomFracDict=elemAtomFracDict, atomDensity=atomDensity)
+        elemAtomFracDict=elemAtomFracDict, atomDensity=atomDensity,
+        temperatureIndex=temperatureIndex)
     return material
 
 def get_triga_clad_material():
@@ -621,6 +623,7 @@ def get_triga_clad_material():
     atomDensity = 8.58765E-02
     fuelRadius = 1.7920 #cm
     temperature = 296. #K
+    temperatureIndex = 0 # X in .9Xc
     thermalOpt = 'free'
     elemAtomFracDict = {'Cr': 0.202441879, 'Fe': 0.687731801, 'Ni': 0.089657823, 'Mn': 0.020168498}
     #
@@ -633,7 +636,8 @@ def get_triga_clad_material():
         temperature=temperature, thermalOpt=thermalOpt,
         symDict=symDict, ZList=ZList, ZAList=ZAList,
         abundanceDict=abundanceDict, chordLength=chordLength,
-        elemAtomFracDict=elemAtomFracDict, atomDensity=atomDensity)
+        elemAtomFracDict=elemAtomFracDict, atomDensity=atomDensity,
+        temperatureIndex=temperatureIndex)
     return material
 
 def get_triga_zirconium_material():
@@ -642,6 +646,7 @@ def get_triga_zirconium_material():
     atomDensity = 4.29600E-2
     fuelRadius = 0.3175 #cm
     temperature = 296. #K
+    temperatureIndex = 0 # X in .9Xc
     thermalOpt = 'free'
     elemAtomFracDict = {'Zr': 1.0}
     #
@@ -654,7 +659,8 @@ def get_triga_zirconium_material():
         temperature=temperature, thermalOpt=thermalOpt,
         symDict=symDict, ZList=ZList, ZAList=ZAList,
         abundanceDict=abundanceDict, chordLength=chordLength,
-        elemAtomFracDict=elemAtomFracDict, atomDensity=atomDensity)
+        elemAtomFracDict=elemAtomFracDict, atomDensity=atomDensity,
+        temperatureIndex=temperatureIndex)
     return material
 
 def get_triga_graphite_material():
@@ -663,6 +669,7 @@ def get_triga_graphite_material():
     atomDensity = 8.52100E-02
     fuelRadius = 2.19255 #cm
     temperature = 296. #K
+    temperatureIndex = 0 # X in .9Xc
     thermalOpt = 'graphite'
     elemAtomFracDict = {'C': 1.0}
     #
@@ -676,7 +683,8 @@ def get_triga_graphite_material():
         temperature=temperature, thermalOpt=thermalOpt,
         symDict=symDict, ZList=ZList, ZAList=ZAList,
         abundanceDict=abundanceDict, chordLength=chordLength,
-        elemAtomFracDict=elemAtomFracDict, atomDensity=atomDensity)
+        elemAtomFracDict=elemAtomFracDict, atomDensity=atomDensity,
+        temperatureIndex=temperatureIndex)
     return material
 
 def get_triga_borated_graphite_material():
@@ -685,6 +693,7 @@ def get_triga_borated_graphite_material():
     atomDensity = 1.27794E-01
     fuelRadius = 1.7411 #cm
     temperature = 296. #K
+    temperatureIndex = 0 # X in .9Xc
     thermalOpt = 'graphite'
     elemAtomFracDict = {'C': 0.788925928, 'B': 0.211074072}
     #
@@ -698,7 +707,8 @@ def get_triga_borated_graphite_material():
         temperature=temperature, thermalOpt=thermalOpt,
         symDict=symDict, ZList=ZList, ZAList=ZAList,
         abundanceDict=abundanceDict, chordLength=chordLength,
-        elemAtomFracDict=elemAtomFracDict, atomDensity=atomDensity)
+        elemAtomFracDict=elemAtomFracDict, atomDensity=atomDensity,
+        temperatureIndex=temperatureIndex)
     return material
 
 def get_triga_b4c_material():
@@ -707,6 +717,7 @@ def get_triga_b4c_material():
     atomDensity = 1.35143E-01
     fuelRadius = 1.5164 #cm
     temperature = 296. #K
+    temperatureIndex = 0 # X in .9Xc
     thermalOpt = 'free'
     elemAtomFracDict = {'C': 0.201616066, 'B': 0.798383934}
     #
@@ -720,7 +731,8 @@ def get_triga_b4c_material():
         temperature=temperature, thermalOpt=thermalOpt,
         symDict=symDict, ZList=ZList, ZAList=ZAList,
         abundanceDict=abundanceDict, chordLength=chordLength,
-        elemAtomFracDict=elemAtomFracDict, atomDensity=atomDensity)
+        elemAtomFracDict=elemAtomFracDict, atomDensity=atomDensity,
+        temperatureIndex=temperatureIndex)
     return material
 
 def get_triga_irradiation_tube_material():
@@ -729,6 +741,7 @@ def get_triga_irradiation_tube_material():
     atomDensity = 4.90539E-02
     fuelRadius = 2.19255 #cm
     temperature = 293.6 #K
+    temperatureIndex = 0 # X in .9Xc
     thermalOpt = 'h2o'
     elemAtomFracDict = {'O': 0.29203693, 'H': 0.58387295, 'N': 0.00038432, 'Al': 0.12370580}
     #
@@ -741,7 +754,8 @@ def get_triga_irradiation_tube_material():
         temperature=temperature, thermalOpt=thermalOpt,
         symDict=symDict, ZList=ZList, ZAList=ZAList,
         abundanceDict=abundanceDict, chordLength=chordLength,
-        elemAtomFracDict=elemAtomFracDict, atomDensity=atomDensity)
+        elemAtomFracDict=elemAtomFracDict, atomDensity=atomDensity,
+        temperatureIndex=temperatureIndex)
     return material
 
 def get_triga_moderator_material():
@@ -750,6 +764,7 @@ def get_triga_moderator_material():
     atomDensity = 1.00037E-1
     fuelRadius = 1.7920 #cm
     temperature = 293.6 #K
+    temperatureIndex = 0 # X in .9Xc
     thermalOpt = 'h2o'
     elemAtomFracDict = {'O': 1.0, 'H': 2.0}
     #
@@ -762,7 +777,8 @@ def get_triga_moderator_material():
         temperature=temperature, thermalOpt=thermalOpt,
         symDict=symDict, ZList=ZList, ZAList=ZAList,
         abundanceDict=abundanceDict, chordLength=chordLength,
-        elemAtomFracDict=elemAtomFracDict, atomDensity=atomDensity)
+        elemAtomFracDict=elemAtomFracDict, atomDensity=atomDensity,
+        temperatureIndex=temperatureIndex)
     return material
 
 def get_triga_air_tube_material():
@@ -771,6 +787,7 @@ def get_triga_air_tube_material():
     atomDensity = 2.73966E-02
     fuelRadius = 3.8 #cm
     temperature = 293.6 #K
+    temperatureIndex = 0 # X in .9Xc
     thermalOpt = 'h2o'
     elemAtomFracDict = {'O': 0.00017253, 'H': 0.00017253, 'N': 0.00017253}
     #
@@ -783,7 +800,8 @@ def get_triga_air_tube_material():
         temperature=temperature, thermalOpt=thermalOpt,
         symDict=symDict, ZList=ZList, ZAList=ZAList,
         abundanceDict=abundanceDict, chordLength=chordLength,
-        elemAtomFracDict=elemAtomFracDict, atomDensity=atomDensity)
+        elemAtomFracDict=elemAtomFracDict, atomDensity=atomDensity,
+        temperatureIndex=temperatureIndex)
     return material
 
 def get_triga_grid_plate_material():
@@ -793,6 +811,7 @@ def get_triga_grid_plate_material():
     atomDensity = 0.059195 #a/b-cm
     fuelRadius = 10. #cm (complete guess)
     temperature = 293.6 #K
+    temperatureIndex = 0 # X in .9Xc
     thermalOpt = 'al'
     #thermalOpt = 'free'
     elemAtomFracDict = {'Al': 0.058693, 'Fe': 0.000502}
@@ -806,7 +825,8 @@ def get_triga_grid_plate_material():
         temperature=temperature, thermalOpt=thermalOpt,
         symDict=symDict, ZList=ZList, ZAList=ZAList,
         abundanceDict=abundanceDict, chordLength=chordLength,
-        elemAtomFracDict=elemAtomFracDict, atomDensity=atomDensity)
+        elemAtomFracDict=elemAtomFracDict, atomDensity=atomDensity,
+        temperatureIndex=temperatureIndex)
     return material
 
 
@@ -1272,9 +1292,10 @@ def print_materials(materials, verbosity=False):
 
 ###############################################################################
 class Material():
-    def __init__(self, shortName=None, longName=None, temperature=None, atomDensity=None, massDensity=None, chordLength=None, abundanceDict=None, elemAtomFracDict=None, elemMassFracDict=None, ZAList=None, ZList=None, symDict=None, backgroundXSDict=None, admixedModeratorDict=None, admixedModeratorList=None, thermalOpt=0, elemWeightDict=None, matlWeight=None, thermalXSDict=None):
+    def __init__(self, shortName=None, longName=None, temperature=None, atomDensity=None, massDensity=None, chordLength=None, abundanceDict=None, elemAtomFracDict=None, elemMassFracDict=None, ZAList=None, ZList=None, symDict=None, backgroundXSDict=None, admixedModeratorDict=None, admixedModeratorList=None, thermalOpt=0, elemWeightDict=None, matlWeight=None, thermalXSDict=None, temperatureIndex=0):
         '''The following units are used:
         temperature in Kelvin is the temperature of the material
+        temperatureIndex is the least-significant digit of an MCNP-like matl. name and refers to temperature
         atomDensity in atoms/barn-cm is the atom density of the material
         massDensity in g/cm^3 is the mass density of the material
         chordLength in cm is used to calculate the escape cross section; set to zero to use 0 escape XS
@@ -1341,6 +1362,9 @@ class Material():
 
     def update_temperature(self, temperature):
         self.temperature = temperature
+
+    def update_temperature_index(self, temperatureIndex):
+        self.temperatureIndex = temperatureIndex
 
     def update_chord_length(self, chordLength):
         self.chordLength = chordLength
@@ -1416,6 +1440,29 @@ class Material():
             strs = ['thermalXSDict', 'backgroundXSDict']
             for strr in strs:
                 print strr, getattr(self, strr)
+            #
+        if verbosity:
+            a = getattr(self, 'abundanceDict')
+            e = getattr(self, 'elemAtomFracDict')
+            aD = getattr(self, 'atomDensity')
+            T_Kelvin = getattr(self, 'temperature')
+            T_MeV = 8.6173324E-11 * T_Kelvin
+            iT = getattr(self, 'temperatureIndex')
+            norm = sum([a[(Z,A)]*e[Z] for (Z,A) in a])
+            print 'MCNP-style material input:'
+            print '     atom_density={:.5f}'.format(aD)
+            print '     tmp={:.3e}'.format(T_MeV)
+            for Z,A in sorted(a.keys()):
+                # NB: Some of the abundanceDict's may be unnormalized
+                # because they neglect some of the isotopes
+                atomFrac = a[(Z,A)] * e[Z]
+                print '     {:02}{:03}.{}c    {:.8e}'.format(Z, A, 90+iT, atomFrac)
+            t = getattr(self, 'thermalXSDict')
+            therm2mcnpDict = util.get_thermal_short2mcnp_dict()
+            for vList in t.values():
+                for v in vList:
+                    if v in therm2mcnpDict:
+                        print '     {}.{}t'.format(therm2mcnpDict[v], 20+iT)
 
     ################################################################
     def make_lists_sets(self):
@@ -1520,6 +1567,13 @@ class Material():
 
     ################################################################
     def set_thermal_xs_dict(self):
+        # WARNING: thermalXSDict should be a ZA list, not a Z list, because the thermal
+        # option is often nuclide-specific. See util.get_thermal_mcnp2zaid_dict for
+        # which nuclides should use which thermal treatments
+        # Current cases where this script does not match MCNP:
+        # H-2 and H-3 in 'h2o'
+        # Non Fe-56 isotopes in 'fe'
+        # U-235 (and anything other than U-238) in 'uo2'
         self.thermalXSDict = {}
         self.thermalOpt = self.thermalOpt.lower().strip()
         if self.thermalOpt == 'none':
@@ -1539,16 +1593,16 @@ class Material():
         elif self.thermalOpt == 'fe':
             for Z in self.ZList:
                 if Z == 26:
-                    # This XS may only apply to Fe-56, though that is the dominant isotope
+                    # This XS only applies to Fe-56, but here we are using it for all Fe isotopes!
                     # This XS may only apply to Fe in a BCC configuration, notably not stainless steel
                     self.thermalXSDict[Z] = ['feinel', 'feelas']
         elif self.thermalOpt == 'uo2':
             for Z in self.ZList:
                 if Z == 8:
-                    # This XS may only apply to U-238, hard to tell
                     self.thermalXSDict[Z] = ['ouo2inel', 'ouo2elas']
                 if Z == 92:
-                    # (using the UUO2 thermal treatment for Pu wrongly treats Pu's low resonance)
+                    # This XS only applies to U-238, but here we are using it for all U isotopes!
+                    # (The UUO2 thermal treatment is very wrong for Pu due to low-lying resonances)
                     self.thermalXSDict[Z] = ['uuo2inel', 'uuo2elas']
         elif self.thermalOpt == 'graphite':
             for Z in self.ZList:
