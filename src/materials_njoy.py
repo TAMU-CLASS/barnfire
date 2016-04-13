@@ -33,7 +33,7 @@ def create_njoy_decks(inputDict, globalZAList, njoyTDict, njoyBXSDict, globalTXS
     groupBdrs = get_group_boundaries(inputDict, verbosity)
     #
     endfName = 'endf/b-{0}'.format(endfLib)
-    pendfScriptPaths, gendfScriptPaths = [], []
+    pendfScriptPaths, gendfScriptPaths, aceScriptPaths = [], [], []
     allowedInelasticThermalMTList = util.get_inelastic_thermal_mt_list()
     short2mtDict = get_short2mt_dict(get_endf_mt_list())
     mt2shortDict = get_mt2short_dict(get_endf_mt_list())
@@ -78,10 +78,11 @@ def create_njoy_decks(inputDict, globalZAList, njoyTDict, njoyBXSDict, globalTXS
         if verbosity:
             print Z, A, dat.sig0List, dat.thermList, inelasticThermalMTList, thermalMATList
         #
-        pendfScriptPath, gendfScriptPath = njoy.create_njoy_script(dat, tapes)
+        pendfScriptPath, gendfScriptPath, aceScriptPath = njoy.create_njoy_script(dat, tapes)
         pendfScriptPaths.append(pendfScriptPath)
         gendfScriptPaths.append(gendfScriptPath)
-    njoy.create_njoy_driver(pendfScriptPaths, gendfScriptPaths)
+        aceScriptPaths.append(aceScriptPath)
+    njoy.create_njoy_driver(pendfScriptPaths, gendfScriptPaths, aceScriptPaths)
 
 ###############################################################################
 def print_njoys(njoyTDict, njoyBXSDict, verbosity=False):
