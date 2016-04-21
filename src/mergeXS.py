@@ -95,7 +95,6 @@ def do_all(inputDict):
             pdtxs.write_PDT_xs_body(outPath, xs)
             if verbosity > 1:
                 print '    Adding {} at {}K'.format(materialName, T)
-        
 
 ###############################################################################
 def define_input_parser():

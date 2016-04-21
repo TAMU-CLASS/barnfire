@@ -17,6 +17,7 @@ import directories as d
 def initialize_scratch_space(callingFile):
     d.make_scratch_directories()
     d.copy_xnjoy()
+    d.copy_nuclide_weights()
     d.copy_common_group_structures()
     d.copy_xs_script(callingFile)
 

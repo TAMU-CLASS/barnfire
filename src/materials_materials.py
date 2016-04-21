@@ -1118,9 +1118,9 @@ def get_multi_temperature_h2o_material_base():
     massDensity = 1.0 #g/cc
     fuelRadius = 1.7920 #cm
     temperature = 293.6 #K
-    # HACK TO ALIGN THERMAL GRIDS!!!
-    #thermalOpt = 'h2o'
-    thermalOpt = 'free'
+    thermalOpt = 'h2o'
+    # Hack to align thermal grids:
+    #thermalOpt = 'free'
     elemAtomFracDict = {'H': 2, 'O': 1}
     #
     symDict, ZList, ZAList = get_all_isotopes(elemAtomFracDict)

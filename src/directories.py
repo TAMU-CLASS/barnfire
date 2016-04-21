@@ -49,6 +49,7 @@ def get_source_directories(headDirr):
     # The initialize script should create and populate these
     dirDict['nuclideData'] = os.path.join(mainDatDirr, 'nuclide-data')
     dirDict['thermalXSSource'] = os.path.join(mainDatDirr, 'thermal_endf')
+    dirDict['nuclideWeights'] = os.path.join(mainDatDirr, 'nuclide_weights')
     return dirDict
 
 def get_scratch_directories(scratchDirr):
@@ -123,6 +124,12 @@ def copy_xs_script(callingFile):
         i += 1
     if os.path.isfile(callingFile):
         try_cp(callingFile, outPath)
+
+def copy_nuclide_weights():
+    dirDict = get_common_directories()
+    inPath = os.path.join(dirDict['nuclideWeights'], 'atomic_wgt_ratios.txt')
+    outPath = os.path.join(dirDict['xdata'], 'xsdir_head')
+    try_cp(inPath, outPath)
 
 #####################################################################################
 def try_mkdir(dirr):
