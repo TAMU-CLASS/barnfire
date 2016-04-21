@@ -25,7 +25,74 @@ import materials_util as util
 
 ###############################################################################
 def get_materials_name2function_dict():
-    return {'hpu': get_hpu_slurry_material, 'hheu': get_hheu_slurry_material, 'hleu': get_hleu_slurry_material, 'puMetal': get_pu_metal_material, 'puMetalHot': get_hot_pu_metal_material, 'uMetal': get_u_metal_material, 'uo2ColdPin': get_cold_pin_uo2_material, 'uo2Cold': get_cold_uo2_material,  'uo2InnerHot': get_inner_hot_uo2_material, 'uo2MiddleHot': get_middle_hot_uo2_material, 'uo2OuterHot': get_outer_hot_uo2_material, 'moxCold': get_cold_mox_material, 'moxInnerHot': get_inner_hot_mox_material, 'moxMiddleHot': get_middle_hot_mox_material, 'moxOuterHot': get_outer_hot_mox_material, 'h2oCold': get_cold_h2o_material, 'h2oHot': get_hot_h2o_material, 'graphite': get_graphite_material, 'clowMOX': get_c5g7_low_mox_material, 'cmedMOX': get_c5g7_med_mox_material, 'chighMOX': get_c5g7_high_mox_material, 'cUO2': get_c5g7_uo2_material, 'cMOD': get_c5g7_moderator_material, 'cGUIDE': get_c5g7_guide_tube_material, 'cFCHAMBER': get_c5g7_fission_chamber_material, 'cCR': get_c5g7_control_rod_material, 'tFUEL': get_triga_fuel_material, 'tZIRC': get_triga_zirconium_material, 'tCLAD': get_triga_clad_material, 'tMOD': get_triga_moderator_material, 'tBORATEDGRAPHITE': get_triga_borated_graphite_material, 'tB4C': get_triga_b4c_material, 'tGRAPHITE': get_triga_graphite_material, 'tAIRTUBE': get_triga_air_tube_material, 'tIRRADIATIONTUBE': get_triga_irradiation_tube_material, 'tGRIDPLATE': get_triga_grid_plate_material, 'iron': get_iron_material, 'thickiron': get_thick_iron_material, 'kFUEL': get_kord_fuel_material, 'kRFUEL': get_kord_rod_fuel_material, 'kEFUEL': get_kord_enriched_fuel_material, 'kCLAD': get_kord_clad_material, 'kZR': get_kord_zirconium_material, 'kMOD': get_kord_moderator_material, 'kREFUEL': get_kord_enriched_rod_fuel_material, 'kRMFUEL': get_kord_mox_rod_fuel_material, 'debFUEL': get_bruss_enriched_rod_fuel_material}
+    return {
+        # Simple examples
+        'hpu': get_hpu_slurry_material,
+        'hheu': get_hheu_slurry_material,
+        'hleu': get_hleu_slurry_material,
+        'puMetal': get_pu_metal_material,
+        'puMetalHot': get_hot_pu_metal_material,
+        'uMetal': get_u_metal_material,
+        # Simple multi-temperature examples
+        'uo2ColdPin': get_cold_pin_uo2_material,
+        'uo2Cold': get_cold_uo2_material,
+        'uo2InnerHot': get_inner_hot_uo2_material,
+        'uo2MiddleHot': get_middle_hot_uo2_material,
+        'uo2OuterHot': get_outer_hot_uo2_material,
+        'moxCold': get_cold_mox_material,
+        'moxInnerHot': get_inner_hot_mox_material,
+        'moxMiddleHot': get_middle_hot_mox_material,
+        'moxOuterHot': get_outer_hot_mox_material,
+        'h2oCold': get_cold_h2o_material,
+        'h2oHot': get_hot_h2o_material,
+        'graphite': get_graphite_material,
+        # C5G7
+        'clowMOX': get_c5g7_low_mox_material,
+        'cmedMOX': get_c5g7_med_mox_material,
+        'chighMOX': get_c5g7_high_mox_material,
+        'cUO2': get_c5g7_uo2_material,
+        'cMOD': get_c5g7_moderator_material,
+        'cGUIDE': get_c5g7_guide_tube_material,
+        'cFCHAMBER': get_c5g7_fission_chamber_material,
+        'cCR': get_c5g7_control_rod_material,
+        # TRIGA (BOL)
+        'tFUEL': get_triga_fuel_material,
+        'tZIRC': get_triga_zirconium_material,
+        'tCLAD': get_triga_clad_material,
+        'tMOD': get_triga_moderator_material,
+        'tBORATEDGRAPHITE': get_triga_borated_graphite_material,
+        'tB4C': get_triga_b4c_material,
+        'tGRAPHITE': get_triga_graphite_material,
+        'tAIRTUBE': get_triga_air_tube_material,
+        'tIRRADIATIONTUBE': get_triga_irradiation_tube_material,
+        'tGRIDPLATE': get_triga_grid_plate_material,
+        # Iron (for time-dependent dissertation problem)
+        'iron': get_iron_material,
+        'thickiron': get_thick_iron_material,
+        # Simplified PWR pincell (for Kord Smith)
+        'kFUEL': get_kord_fuel_material,
+        'kRFUEL': get_kord_rod_fuel_material,
+        'kEFUEL': get_kord_enriched_fuel_material,
+        'kCLAD': get_kord_clad_material,
+        'kZR': get_kord_zirconium_material,
+        'kMOD': get_kord_moderator_material,
+        'kREFUEL': get_kord_enriched_rod_fuel_material,
+        'kRMFUEL': get_kord_mox_rod_fuel_material,
+        # UO2 (for Don Bruss)
+        'debFUEL': get_bruss_enriched_rod_fuel_material,
+        # Multi-temperature examples
+        'mtH2O_0': get_multi_temperature_h2o_material_T0,
+        'mtH2O_1': get_multi_temperature_h2o_material_T1,
+        'mtH2O_2': get_multi_temperature_h2o_material_T2,
+        'mtTFUEL_0': get_multi_temperature_triga_fuel_material_T0,
+        'mtTFUEL_1': get_multi_temperature_triga_fuel_material_T1,
+        'mtTFUEL_2': get_multi_temperature_triga_fuel_material_T2,
+        'mtTFUEL_3': get_multi_temperature_triga_fuel_material_T3,
+        'mtTFUEL_4': get_multi_temperature_triga_fuel_material_T4,
+        'mtTFUEL_5': get_multi_temperature_triga_fuel_material_T5,
+        'mtTFUEL_6': get_multi_temperature_triga_fuel_material_T6,
+        'mtTFUEL_7': get_multi_temperature_triga_fuel_material_T7,
+    }
 
 ###############################################################################
 
@@ -349,7 +416,7 @@ def get_h2o_material():
         abundanceDict=abundanceDict, chordLength=chordLength,
         elemAtomFracDict=elemAtomFracDict, massDensity=massDensity)
     return material
-
+    
 def get_cold_h2o_material(T=400.):
     material = get_h2o_material()
     material.update_temperature(T)
@@ -1044,6 +1111,122 @@ def get_kord_moderator_material():
     material.update_names('kMOD', 'cold light water')
     return material
 
+###############################################################################
+def get_multi_temperature_h2o_material_base():
+    shortName = 'mtH2O'
+    longName = 'light water'
+    massDensity = 1.0 #g/cc
+    fuelRadius = 1.7920 #cm
+    temperature = 293.6 #K
+    # HACK TO ALIGN THERMAL GRIDS!!!
+    #thermalOpt = 'h2o'
+    thermalOpt = 'free'
+    elemAtomFracDict = {'H': 2, 'O': 1}
+    #
+    symDict, ZList, ZAList = get_all_isotopes(elemAtomFracDict)
+    abundanceDict = lookup_natl_abundances(ZAList)
+    chordLength = calc_chord_length(fuelRadius)
+    #
+    material = Material(
+        shortName=shortName, longName=longName,
+        temperature=temperature, thermalOpt=thermalOpt,
+        symDict=symDict, ZList=ZList, ZAList=ZAList,
+        abundanceDict=abundanceDict, chordLength=chordLength,
+        elemAtomFracDict=elemAtomFracDict, massDensity=massDensity)
+    return material
+
+def get_multi_temperature_h2o_material_Tgrid():
+    return [293.6, 350, 400, 450, 500, 550, 600, 650, 800] #K
+
+def get_multi_temperature_h2o_material_Ti(iT):
+    P = 0.101325 #MPa
+    #P = 15.5 #MPa
+    material = get_multi_temperature_h2o_material_base()
+    Tgrid = get_multi_temperature_h2o_material_Tgrid()
+    T = Tgrid[iT] 
+    rho = steam(P=P, T=T).rho / 1000
+    shortName = 'mtH2O_{}'.format(iT)
+    longName = 'light water ({} K)'.format(T)
+    material.update_temperature(T)
+    material.update_temperature_index(iT) # X in .9Xc
+    material.update_mass_density(rho)
+    material.update_names(shortName, longName)
+    return material
+    
+def get_multi_temperature_h2o_material_T0():
+    return get_multi_temperature_h2o_material_Ti(0)
+
+def get_multi_temperature_h2o_material_T1():
+    return get_multi_temperature_h2o_material_Ti(1)
+
+def get_multi_temperature_h2o_material_T2():
+    return get_multi_temperature_h2o_material_Ti(2)
+
+def get_multi_temperature_h2o_material_T3():
+    return get_multi_temperature_h2o_material_Ti(3)
+
+def get_multi_temperature_h2o_material_T4():
+    return get_multi_temperature_h2o_material_Ti(4)
+
+def get_multi_temperature_h2o_material_T5():
+    return get_multi_temperature_h2o_material_Ti(5)
+
+def get_multi_temperature_h2o_material_T6():
+    return get_multi_temperature_h2o_material_Ti(6)
+
+def get_multi_temperature_h2o_material_T7():
+    return get_multi_temperature_h2o_material_Ti(7)
+
+def get_multi_temperature_h2o_material_T8():
+    return get_multi_temperature_h2o_material_Ti(8)
+
+###############################################################################
+def get_multi_temperature_triga_fuel_material_base():
+    return get_triga_fuel_material()
+
+def get_multi_temperature_triga_fuel_material_Tgrid():
+    return [296, 400, 500, 600, 700, 800, 1000, 1200] #K
+
+def get_multi_temperature_triga_fuel_material_Ti(iT):
+    material = get_multi_temperature_triga_fuel_material_base()
+    Tgrid = get_multi_temperature_triga_fuel_material_Tgrid()
+    T = Tgrid[iT] 
+    shortName = 'mtTFUEL_{}'.format(iT)
+    longName = '{} ({} K)'.format(material.longName, T)
+    material.update_temperature(T)
+    material.update_temperature_index(iT) # X in .9Xc
+    # MASS DENSITY SHOULD BE UPDATED TO ACCOUNT FOR THERMAL EXPANSION
+    #material.update_mass_density(rho)
+    material.update_names(shortName, longName)
+    return material
+
+def get_multi_temperature_triga_fuel_material_T0():
+    return get_multi_temperature_triga_fuel_material_Ti(0)
+
+def get_multi_temperature_triga_fuel_material_T1():
+    return get_multi_temperature_triga_fuel_material_Ti(1)
+
+def get_multi_temperature_triga_fuel_material_T2():
+    return get_multi_temperature_triga_fuel_material_Ti(2)
+
+def get_multi_temperature_triga_fuel_material_T3():
+    return get_multi_temperature_triga_fuel_material_Ti(3)
+
+def get_multi_temperature_triga_fuel_material_T4():
+    return get_multi_temperature_triga_fuel_material_Ti(4)
+
+def get_multi_temperature_triga_fuel_material_T5():
+    return get_multi_temperature_triga_fuel_material_Ti(5)
+
+def get_multi_temperature_triga_fuel_material_T6():
+    return get_multi_temperature_triga_fuel_material_Ti(6)
+
+def get_multi_temperature_triga_fuel_material_T7():
+    return get_multi_temperature_triga_fuel_material_Ti(7)
+
+def get_multi_temperature_triga_fuel_material_T8():
+    return get_multi_temperature_triga_fuel_material_Ti(8)
+    
 ###############################################################################
 def get_all_isotopes(elemDict):
     symList = elemDict.keys()

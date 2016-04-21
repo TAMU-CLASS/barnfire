@@ -61,19 +61,23 @@ def define_defaults():
     #WattConstants = [0.966, 2.842] # thermal fission from Pu-239
     WattConstants = [0.988, 2.2249] #thermal fission from U-235
 
-    # Specify which materials to use
+    # Specify which set of materials to use
     #materialOpt = '3'
     #materialOpt = '4'
     ##materialOpt = '5'
     #materialOpt = 'c5g7'
     #materialOpt = 'graphite'
-    materialOpt = 'iron'
+    #materialOpt = 'iron'
+    materialOpt = 'manual'
+
+    # If materialOpt is 'manual', list of materials to use
+    materialsList = ['deb']
 
     # Specify energy mesh for output weights / fluxes
     #meshName = 'clust-{r}'
     meshName = 'res-{r}'
 
-    return {'verbosity': verbosity, 'workopt': workOpt, 'resolution':resolution, 'energyspacing': energySpacing, 'rrr': rrrRange,'groupopt': groupOpt, 'materialopt': materialOpt, 'meshname': meshName, 'fastspectrumparam': WattConstants}
+    return {'verbosity': verbosity, 'workopt': workOpt, 'resolution':resolution, 'energyspacing': energySpacing, 'rrr': rrrRange,'groupopt': groupOpt, 'materialopt': materialOpt, 'meshname': meshName, 'fastspectrumparam': WattConstants, 'listmaterials': materialsList}
 
 def do_all(inputDict):
     '''Create Sigma_t for the specified materials on a proper grid for later clustering'''
@@ -82,6 +86,7 @@ def do_all(inputDict):
     plotOutput = inputDict['plot']
     workOpt = inputDict['workopt']
     materialOpt = inputDict['materialopt']
+    materialsList = inputDict['listmaterials']
     pwResFactor = inputDict['resolution']
     eSpacing = inputDict['energyspacing']
     rrrRange = inputDict['rrr']
@@ -89,6 +94,7 @@ def do_all(inputDict):
     meshName = inputDict['meshname']
     useLowZScat = inputDict['Zlow']
     noScatOpt = inputDict['totalonly']
+    temperatureDependence = inputDict['temperaturedependence']
     WattConstants = inputDict['fastspectrumparam']
 
     # Initialize options
@@ -106,7 +112,6 @@ def do_all(inputDict):
 
     # Specify materials
     materials = []
-    temperatureDependence = False
     if materialOpt == '3':
         materials.append(mat.get_inner_hot_mox_material())
         materials.append(mat.get_middle_hot_mox_material())
@@ -215,6 +220,11 @@ def do_all(inputDict):
             materials.append(mat.get_triga_grid_plate_material())
     elif materialOpt == 'deb':
         materials.append(mat.get_bruss_enriched_rod_fuel_material())
+    else:
+        #materialOpt == 'manual'
+        materialFunctionDict = mat.get_materials_name2function_dict()
+        for materialName in materialsList:
+            materials.append(materialFunctionDict[materialName]())
 
     # For each material, compute total cross sections or infinite-medium fluxes
     if verbosity:
@@ -307,7 +317,7 @@ def compute_infinite_medium_flux(materials, linearTol, maxFluxJump, maxdEJump, e
 
     # Determine cross sections on union grid
     unionEnergyGrid = np.unique(np.concatenate(energyGridDict.values()))
-    if plotOutput and verbosity > 3:
+    if plotOutput > 2:
         plot_dE(unionEnergyGrid, 'de_flux_0_union')
 
     materialIndexDict = {}
@@ -324,7 +334,7 @@ def compute_infinite_medium_flux(materials, linearTol, maxFluxJump, maxdEJump, e
     unionEnergyGrid, unionXSMat = thin_grid(unionEnergyGrid, unionXSMat, linearTol, verbosity)
     if verbosity > 1:
         compute_thinning_error(fullEnergyGrid, fullXSMat, unionEnergyGrid, unionXSMat, True)
-    if plotOutput and verbosity > 3:
+    if plotOutput > 2:
         plot_dE(unionEnergyGrid, 'de_flux_1_after_xs_thin')
 
     # Thicken the grid so the maximum relative jump in energy is bounded (for downscattering)
@@ -351,7 +361,7 @@ def compute_infinite_medium_flux(materials, linearTol, maxFluxJump, maxdEJump, e
     perform_slowing_down_calc(energyGridDict, scatXSDict, unionFluxMat, materialIndexDict, alphaDict, unionXSMat, unionEnergyGrid, materials, WattConstants, escapeXS, normalizeSource, useLowZScat, noScatOpt, plotOutput)
     if verbosity:
         print 'Performed slowing-down calculation in {0} sec'.format(time.time() - t0)
-    if plotOutput and verbosity > 2:
+    if plotOutput > 1:
         plot_sigma(materials, materialIndexDict, unionEnergyGrid, unionFluxMat, 'flux_2_after_dE_thick', 'Flux(E)/M(E)')
 
     # Thin grid to linear tolerance on flux
@@ -360,13 +370,13 @@ def compute_infinite_medium_flux(materials, linearTol, maxFluxJump, maxdEJump, e
     unionEnergyGrid, unionFluxMat = thin_grid(unionEnergyGrid, unionFluxMat, linearTol, verbosity)
     if verbosity > 1:
         compute_thinning_error(fullEnergyGrid, fullFluxMat, unionEnergyGrid, unionFluxMat, True)
-    if plotOutput and verbosity > 3:
+    if plotOutput > 2:
         plot_dE(unionEnergyGrid, 'de_flux_3_after_sigma_thin')
         plot_sigma(materials, materialIndexDict, unionEnergyGrid, unionFluxMat, 'flux_3_after_sigma_thin', 'Flux(E)/M(E)')
 
     # Thicken the grid so the maximum relative jump in the flux is bounded
     unionEnergyGrid, unionFluxMat = thicken_grid(unionEnergyGrid, unionFluxMat, maxFluxJump, 'y', verbosity)
-    if plotOutput and verbosity > 2:
+    if plotOutput > 1:
         plot_dE(unionEnergyGrid, 'de_flux_4_after_sigma_thick')
         plot_sigma(materials, materialIndexDict, unionEnergyGrid, unionFluxMat, 'flux_4_after_sigma_thick', 'Flux(E)/M(E)')
 
@@ -427,7 +437,7 @@ def compute_total_xs(materials, linearTol, maxXSJump, maxdEJump, temperatureDepe
     materialIndexDict = {}
     unionMacroTotalXSMat = np.zeros((numMaterials, len(unionEnergyGrid)))
     compute_macro_xs(materialIndexDict, unionMacroTotalXSMat, unionEnergyGrid, energyGridDict, totalXSDict, materials, globalZATList)
-    if plotOutput and verbosity > 2:
+    if plotOutput > 1:
         plot_sigma(materials, materialIndexDict, unionEnergyGrid, unionMacroTotalXSMat, 'xs_0_union')
         plot_dE(unionEnergyGrid, 'de_xs_0_union')
 
@@ -437,7 +447,7 @@ def compute_total_xs(materials, linearTol, maxXSJump, maxdEJump, temperatureDepe
     unionEnergyGrid, unionMacroTotalXSMat = thin_grid(unionEnergyGrid, unionMacroTotalXSMat, linearTol, verbosity)
     if verbosity > 1:
         compute_thinning_error(fullEnergyGrid, fullMacroTotalXSMat, unionEnergyGrid, unionMacroTotalXSMat, True)
-    if plotOutput and verbosity > 2:
+    if plotOutput > 1:
         plot_sigma(materials, materialIndexDict, unionEnergyGrid, unionMacroTotalXSMat, 'xs_1_after_xs_thin')
         plot_dE(unionEnergyGrid, 'de_xs_1_after_xs_thin')
 
@@ -445,7 +455,7 @@ def compute_total_xs(materials, linearTol, maxXSJump, maxdEJump, temperatureDepe
     unionEnergyGrid, unionMacroTotalXSMat = thicken_grid(unionEnergyGrid, unionMacroTotalXSMat, maxXSJump, 'y', verbosity)
     if verbosity > 1:
         compute_thinning_error(fullEnergyGrid, fullMacroTotalXSMat, unionEnergyGrid, unionMacroTotalXSMat, True)
-    if plotOutput and verbosity > 2:
+    if plotOutput > 1:
         plot_sigma(materials, materialIndexDict, unionEnergyGrid, unionMacroTotalXSMat, 'xs_2_after_xs_thick')
         plot_dE(unionEnergyGrid, 'de_xs_2_after_xs_thick')
 
@@ -1231,7 +1241,7 @@ def define_input_parser():
     defaults = define_defaults()
     # If nothing is specified, verbosity is False. If -v or --verbose is specified, verbosity is 1. If -v N is specified, verbosity is N.
     parser.add_argument('-v', '--verbose', dest='verbosity', nargs='?', const=1, default=defaults['verbosity'], choices=[0,1,2,3,4], type=int)
-    parser.add_argument('-p', '--plot', help='Make various diagnostic plots (depends on verbosity level)', action='store_true', default=False)
+    parser.add_argument('-p', '--plot', help='Make various diagnostic plots depending on desired level of prolificity', nargs='?', const=1, type=int, choices=[0,1,2,3], default=0)
     parser.add_argument('-f', '--fastspectrumparam', help="The 'a' and 'b' parameters to determine the Maxwellian used for the fast spectrum. See MCNP manual for examples.", type=float, nargs=2, default=defaults['fastspectrumparam'])
     parser.add_argument('-T', '--totalonly', help='If specified, do not calculate downscattering.', action='store_true', default=False)
     parser.add_argument('-Z', '--Zlow', help='If specified, add low-Z components to the elastic scattering source and turn off the 1/E fixed source. If not specified, the elastic scattering source comes only from high-Z components and low-Z components are taken into account with a 1/E fixed source.', action='store_true', default=False)
@@ -1240,7 +1250,9 @@ def define_input_parser():
     parser.add_argument('-G', '--groupopt', help="Base coarse group structure file head. If the flux work option is used, the output group structure is the base coarse group structure with the RRR overwritten by the hyperfine group structure. Some examples include 'c5g7', 'scale-44', and 'res-N' where N=1,..9. Always looks in default directory of makegroups.", default=defaults['groupopt'])
     parser.add_argument('-r', '--resolution', help='Resolution to use for the pointwise flux calculations', type=int, choices=range(11), default=defaults['resolution'])
     parser.add_argument('-E', '--energyspacing', help='The maximum energy jump in the final grid is equal to this factor multiplied by a jump normalization based on downscattering distance off a heavy nucleus.', type=float, default=defaults['energyspacing'])
-    parser.add_argument('-m', '--materialopt', help='Which materials to use. Specify in aggregate, not individually.', choices=['3','4','5','c5g7', 'graphite', 'iron', 'kpin', 'kenrichedpin', 'kcladpin', 'kpin2d', 'kenrichedpin2d', 'kmoxpin2d', 'kmoxenrichedpin2d', 'trigafuel', 'trigamore', 'deb'], default=defaults['materialopt'])
+    parser.add_argument('-m', '--materialopt', help=" Unless 'manual' is used, specifies a set of materials to use. If 'manual' is used, give a space-separated list of material names in 'listmaterials'.", choices=['3','4','5','c5g7', 'graphite', 'iron', 'kpin', 'kenrichedpin', 'kcladpin', 'kpin2d', 'kenrichedpin2d', 'kmoxpin2d', 'kmoxenrichedpin2d', 'trigafuel', 'trigamore', 'deb', 'manual'], default=defaults['materialopt'])
+    parser.add_argument('-i', '--indicatormaterials', dest='listmaterials', help="When manual 'materialopt' is used, specify the materials to use.", nargs='+', default=defaults['listmaterials'], choices=mat.get_materials_name2function_dict().keys())
+    parser.add_argument('-t', '--temperaturedependence', help="If specified, use the temperature in the PENDF file that corresponds to the temperature of the material (as specified in 'materials_materials.py'). If this temperature does not exist, an error is thrown. If not specified, the first temperature in the PENDF file is used. This flag is added for 'materialopt' of '3'.", action='store_true', default=False)
     parser.add_argument('-M', '--meshname', help="The energy mesh on which the output fluxes are constructed. {r} is replaced by the resolution. If the 'flux' workopt is used, the mesh file is written to. Else, is it read from. If no file type is specified, '.txt' is used. If no directory is specified, the 'energyDat' directory from directories is used.", default=defaults['meshname'])
     return parser
 

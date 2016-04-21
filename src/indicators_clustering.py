@@ -62,13 +62,16 @@ def define_defaults():
     # Specify how many elements to use in each coarse group
     listNumElements = []
 
-    # Specify which materials to use
+    # Specify which set of materials to use
     #materialOpt = '4'
-    materialOpt = 'c5g7'
+    #materialOpt = 'c5g7'
+    materialOpt = 'manual'
 
-    return {'verbosity': verbosity, 'numelements': numElements, 'apportionopt': apportionOpt, 'workopt': workOpt, 'resolution':resolution, 'coarsebdrs': coarseBdrs, 'numcoarsegroups': numCoarseGroups, 'materialopt': materialOpt, 'shownumbers': showNumbers, 'condensesubelements': condenseSubelements, 'plotopt': plotOpt, 'energypenalty': energyPenalty, 'dpi': dpi, 'listnumelements': listNumElements}
+    # If materialOpt is 'manual', list of materials to use
+    materialsList = ['deb']
+    importancesLst = []
 
-
+    return {'verbosity': verbosity, 'numelements': numElements, 'apportionopt': apportionOpt, 'workopt': workOpt, 'resolution':resolution, 'coarsebdrs': coarseBdrs, 'numcoarsegroups': numCoarseGroups, 'materialopt': materialOpt, 'shownumbers': showNumbers, 'condensesubelements': condenseSubelements, 'plotopt': plotOpt, 'energypenalty': energyPenalty, 'dpi': dpi, 'listnumelements': listNumElements, 'listmaterials': materialsList}
 
 def do_all(inputDict):
     '''Driver function to read indicators, compute observations, perform clustering, write energy mesh'''
@@ -114,6 +117,8 @@ def copy_inputDict_to_dataDict(inputDict, dataDict):
     dataDict['useSigt'] = inputDict['sigt']
     dataDict['resolution'] = inputDict['resolution']
     dataDict['materialOpt'] = inputDict['materialopt']
+    dataDict['materialsList'] = inputDict['listmaterials']
+    dataDict['importancesList'] = inputDict['listimportances']
     dataDict['numElements'] = inputDict['numelements']
     dataDict['numElementsIsTotal'] = inputDict['numelementsistotal']
     dataDict['numElementsList'] = inputDict['listnumelements']
@@ -171,6 +176,8 @@ def read_energy_and_indicators(dataDict):
     # Inputs
     resolution = dataDict['resolution']
     materialOpt = dataDict['materialOpt']
+    materialsList = dataDict['materialsList']
+    importancesList = dataDict['importancesList']
     useSigt = dataDict['useSigt']
     energyDatDirr = dataDict['energyDatDirr']
     indicatorsDatDirr = dataDict['indicatorsDatDirr']
@@ -209,6 +216,11 @@ def read_energy_and_indicators(dataDict):
         importanceDict = {'tFUEL': 1}
     elif materialOpt == 'trigamore':
         importanceDict = {'tFUEL': 10, 'tCLAD': 2, 'tZIRC': 2, 'tIRRADIATIONTUBE': 1}
+    elif materialOpt == 'manual':
+        if not importancesList:
+            importancesList = [1]*len(materialsList)
+        importanceDict = {material:importance for material,importance in zip(
+            materialsList, importancesList)}
 
     # Appending to materialNames does not alias onto importanceDict
     materialNames = importanceDict.keys()
@@ -526,10 +538,7 @@ def cluster_one_coarse_group(dataDict, timeDict, observations, globalLabels, off
 
     # Output 2: Plot observations colored by label / cluster
     if plotOpt not in ['none', 'sum']:
-        plot_clustering(dataDict, coarseGroup, uniqueLabels, labels, eGrid, obs, numClusters, numPoints)
-    # Hack to manually print interesting cases
-    #if coarseGroup == 1846:
-    #    plot_clustering(dataDict, coarseGroup, uniqueLabels, labels, eGrid, obs, numClusters, numPoints)
+        plot_clustering(dataDict, coarseGroup, uniqueLabels, labels, eGrid, obs, numClusters, numPoints, offset)
 
     # Output3:
     return offset
@@ -566,15 +575,16 @@ def plot_summary(dataDict, observations, globalLabels):
     gBdr = groupBdrs[strt:end+1]
     numGroups, numPoints = obs.shape
     labels = globalLabels[strt:end].copy()
-    labels -= np.min(labels)
+    offset = np.min(labels)
+    labels -= offset
     uniqueLabels = np.unique(labels)
 
     numClusters = numElements
     coarseGroup = 'sum'
     # Output
-    plot_clustering(dataDict, coarseGroup, uniqueLabels, labels, eGrid, obs, numClusters, numPoints)
+    plot_clustering(dataDict, coarseGroup, uniqueLabels, labels, eGrid, obs, numClusters, numPoints, offset)
 
-def plot_clustering(dataDict, coarseGroup, uniqueLabels, labels, eGrid, obs, numClusters, numPoints):
+def plot_clustering(dataDict, coarseGroup, uniqueLabels, labels, eGrid, obs, numClusters, numPoints, offset):
     '''Plot observations in coarse group'''
     # Inputs
     forceContiguity = dataDict['forceContiguity']
@@ -960,7 +970,9 @@ def define_input_parser():
     parser.add_argument('-n', '--numcoarsegroups', help="The number of coarse groups to be used. If nonzero, overwrites the internal members of 'coarsebdrs'", type=int, default=defaults['numcoarsegroups'])
     parser.add_argument('-l', '--listnumelements', help='Number of elements to be put in each coarse boundary. Number of arguments should be one less than the number of coarse boundaries. Takes priority over "elements" if set', type=int, nargs='+', default=defaults['listnumelements'])
     parser.add_argument('-r', '--resolution', help='Resolution to use for the pointwise flux calculations', type=int, choices=range(11), default=defaults['resolution'])
-    parser.add_argument('-m', '--materialopt', help='Which materials to use. Specify in aggregate, not individually.', choices=['4','5','c5g7', 'graphite', 'iron', 'kpin', 'kenrichedpin', 'kcladpin', 'kpin2d', 'kenrichedpin2d', 'kmoxpin2d', 'kmoxenrichedpin2d', 'trigafuel', 'trigamore'], default=defaults['materialopt'])
+    parser.add_argument('-m', '--materialopt', help="Unless 'manual' is used, specifies a set of materials to use. If 'manual' is used, give a space-separated list of material names in 'listmaterials'.", choices=['4','5','c5g7', 'graphite', 'iron', 'kpin', 'kenrichedpin', 'kcladpin', 'kpin2d', 'kenrichedpin2d', 'kmoxpin2d', 'kmoxenrichedpin2d', 'trigafuel', 'trigamore', 'manual'], default=defaults['materialopt'])
+    parser.add_argument('-i', '--indicatormaterials', dest='listmaterials', help="When manual 'materialopt' is used, specify the materials to use.", nargs='+', default=defaults['listmaterials'])
+    parser.add_argument('-I', '--importances', dest='listimportances', help="When manual 'materialopt' is used, specify the weightings (importances) to use when clustering.", nargs='+', type=int, default=[])
     parser.add_argument('-p', '--plotopt', help='Which observations to plot', choices=['none', 'first', 'last', 'firstlast', 'half', 'all', 'sum'], default=defaults['plotopt'])
     parser.add_argument('-s', '--shownumbers', help='If true, show element numbers on the plots', type=int, default=defaults['shownumbers'])
     parser.add_argument('-E', '--energypenalty', help='The energy variable is added to the observations to encourage contiguity for high numbers of elements. A value of 0 will not penalize in energy at all. A very large value will yield equal-lethargy-spaced MG', type=float, default=defaults['energypenalty'])

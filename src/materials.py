@@ -29,7 +29,7 @@ def do_all(inputDict):
     useCommonBXS = inputDict['commonbackgroundxs']
     materials = []
     mat2funcDict = mat.get_materials_name2function_dict()
-    for matl in inputDict['materialslist']:
+    for matl in sorted(inputDict['materialslist']):
         materials.append(mat2funcDict[matl]())
     #
     util.print_newline(verbosity)
