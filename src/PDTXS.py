@@ -97,18 +97,20 @@ def read_PDT_xs_generally(filePath):
     return PDT_XS(numGroups, numMoments, temperature, xsType, xsUnits, groupBdrs, groupWidths, xsDict)
 
 def write_PDT_xs_generally(filePath, xsDat, fromStr='barnfire'):
+    temperatureList = [xsDat.T]
+    write_PDT_xs_header(filePath, xsDat, temperatureList, fromStr)
+    write_PDT_xs_body(filePath, xsDat)
+    
+def write_PDT_xs_header(filePath, xsDat, temperatureList=[], fromStr='barnfire'):
     '''Write a PDT XS from a PDT_XS object'''
     # Get XS meta-information
     timeStr = datetime.strftime(datetime.now(), '%c')
     numGroups = xsDat.G
     numMoments = xsDat.M
-    temperature = xsDat.T
     typeStr = xsDat.typeStr
     microStr = xsDat.microStr
     groupBoundaries = xsDat.Eg
-
-    # Define special reaction (MT) numbers; zeroDMT are MT numbers that have only 1 value
-    zeroDMTList = [457, 458]
+    numTemperatures = len(temperatureList)
 
     # Print all reactions in xsDat, but print the weight first, if it's included
     mtWgt = 1099
@@ -130,7 +132,7 @@ def write_PDT_xs_generally(filePath, xsDat, fromStr='barnfire'):
         fid.write('PDT Format Material Data File created {0}\n'.format(timeStr))
         fid.write('\n')
         fid.write('This file is a {0} neutron library generated from {1}.\n'.format(typeStr, fromStr))
-        fid.write('1 temperatures, 1 densities, and {0} groups.\n'.format(numGroups))
+        fid.write('{0} temperatures, 1 densities, and {1} groups.\n'.format(numTemperatures, numGroups))
         fid.write('\n')
         fid.write('{0} and {1}.\n'.format(oneDStr, xferStr))
         fid.write('Scattering order {0}\n'.format(numMoments-1))
@@ -138,14 +140,37 @@ def write_PDT_xs_generally(filePath, xsDat, fromStr='barnfire'):
         fid.write('{0}\n'.format(microStr))
         fid.write('\n')
         fid.write('Temperatures in Kelvin:\n')
-        fid.write('{0:>15g}\n'.format(temperature))
+        fid.write(multiline_string(temperatureList, 15, 5, 7))
         fid.write('\n')
         fid.write('Densities in g/cc:\n')
         fid.write('{0:>15}\n'.format(0))
         fid.write('\n')
         fid.write('Group boundaries in eV:\n')
         fid.write(multiline_string(groupBoundaries, 15, 5, 7))
-        fid.write('\n')
+        fid.write('\n') 
+
+def write_PDT_xs_body(filePath, xsDat):
+    '''Write a PDT XS from a PDT_XS object'''
+    # Get XS meta-information
+    timeStr = datetime.strftime(datetime.now(), '%c')
+    numGroups = xsDat.G
+    numMoments = xsDat.M
+    temperature = xsDat.T
+
+    # Define special reaction (MT) numbers; zeroDMT are MT numbers that have only 1 value
+    zeroDMTList = [457, 458]
+
+    # Print all reactions in xsDat, but print the weight first, if it's included
+    mtWgt = 1099
+    oneDMTOrder = sorted([key for key in xsDat.xs.keys() if (key != mtWgt and key < 2500)])
+    xferMTOrder = sorted([key for key in xsDat.xs.keys() if key >= 2500])
+    if mtWgt in xsDat.xs.keys():
+        oneDMTOrder.insert(0, 1099)
+    num1D = len(oneDMTOrder)
+    numXfer = len(xferMTOrder)
+
+    # Write XS in PDT format
+    with open(filePath, 'a') as fid:
         fid.write('T = {0:g} density = 0\n'.format(temperature))
         fid.write('---------------------------------------------------\n')
         for MT in oneDMTOrder:
