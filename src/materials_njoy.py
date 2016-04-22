@@ -84,6 +84,7 @@ def create_njoy_decks(inputDict, globalZAList, njoyTDict, njoyBXSDict, globalTXS
         gendfScriptPaths.append(gendfScriptPath)
         aceScriptPaths.append(aceScriptPath)
         aceFilesDict[dat.nuclideName] = aceFiles
+    # TODO Insert loop here over thermal options (that adds to both aceScriptPaths and aceFilesDict)
     njoy.create_njoy_driver(pendfScriptPaths, gendfScriptPaths, aceScriptPaths)
     njoy.create_ace_copier(aceFilesDict)
 

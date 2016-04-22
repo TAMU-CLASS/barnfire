@@ -13,6 +13,85 @@ from datetime import datetime
 #MINE
 from directories import try_mkdir, try_make_exe, get_common_directories
 
+def create_thermal_ace_njoy_script(dat, tapes):
+    '''Create NJOY file to generate a thermal ACE output. These are done for each thermal treatment and each temperature.'''
+
+    #Directories
+    dirDict = get_common_directories()
+    pyDirr = dirDict['src']
+    endfDirr = dirDict['endf']
+    pendfRootDirr = dirDict['pendf']
+    aceRootDirr = dirDict['ace']
+    njoyPath = os.path.join(dirDict['njoyInstall'], 'xnjoy')
+    #
+    pendfDirr = os.path.join(pendfRootDirr, str(dat.nuclideName))
+    aceDirr = os.path.join(aceRootDirr, str(dat.nuclideName))
+    #
+    endfPath = os.path.join(endfDirr, dat.endfFile)
+    pendfPath = os.path.join(pendfDirr, pendfFile)
+    #
+    relPathNJOYAce = os.path.relpath(njoyPath, aceDirr)
+    relPathEndfAce = os.path.relpath(endfPath, aceDirr)
+    relPathPendfAce = os.path.relpath(pendfPath, aceDirr)
+    #
+    numThermals = len(dat.endfThermalFileList)
+    numTemperatures = len(dat.thermList)
+    pendfOutTape = get_pendf_out_tape(tapes, numThermals)
+    endfThermalPathList = [os.path.join(endfDirr, thermalFile) for
+        thermalFile in dat.endfThermalFileList if thermalFile]
+    endfThermalTapeList = map(lambda x: x + tapes.endfThermalStart, range(numThermals))
+    endfNonFreeThermalTapeList = [tape for (mt,tape) in
+        zip(dat.inelasticMTList, endfThermalTapeList) if mt != 221]
+    #
+    aceScriptFile = 'runNJOY.sh'
+    aceScriptPath = os.path.join(aceDirr, aceScriptFile)
+    aceFileTemplate = '{Z}{A:03}.2{s}t'
+
+    # Script to run NJOY from PENDF to thermal ACE:
+    deck = []
+    deck.append(["#! /usr/bin/env bash"])
+    deck.append(["echo 'NJOY Problem {0} {1} (PENDF to thermal ACE)'".format(dat.nuclideName, dat.endfName)])
+    deck.append(["echo 'Getting ENDF input tape, PENDF input tape and NJOY executable'"])
+    deck.append(['ln -fs {0} xnjoy'.format(relPathNJOYAce)])
+    deck.append(['ln -fs {0} tape{1:02g}'.format(relPathEndfAce, tapes.endf)])
+    deck.append(['ln -fs {0} tape{1:02g}'.format(relPathPendfAce, abs(pendfOutTape))])
+    for endfTape, relPath in zip(endfNonFreeThermalTapeList, relPathThermalPendfList):
+        deck.append(['ln -fs {0} tape{1:02g}'.format(relPath, endfTape)])
+    deck.append(["echo 'Running NJOY'"])
+    deck.append(["cat>input <<EOF"])
+    create_moder_input(deck, dat, tapes.endf, tapes.bendf)
+    deck.append(['stop'])
+    deck.append(["EOF"])
+    deck.append(["./xnjoy<input"])
+    for iT in range(numTemperatures):
+        # Do multiple calls to NJOY (bug in NJOY somewhere)
+        deck.append(["cat>input <<EOF"])
+        create_thermal_acer_input(deck, dat, tapes.bendf, tapes.pendfOutTape, tapes.aceStart,
+            tapes.aceXSDirStart, iT)
+        create_acer_visualization_input(deck, dat, tapes.aceStart, tapes.acerViewStart,
+            tapes.viewrAceStart, iT, False)
+        deck.append(['stop'])
+        deck.append(["EOF"])
+        deck.append(["./xnjoy<input"])
+    deck.append(["echo 'Cleaning up and saving ACE files'"])
+    aceFiles = []
+    for i in range(numTemperatures):
+        tapeAceOut, tapeXSDirOut, viewrOut = tapes.aceStart + i, tapes.aceXSDirStart + i, tapes.viewrAceStart + i
+        aceFile = aceFileTemplate.format(A=dat.A, Z=dat.Z, s=i)
+        aceFiles.append(aceFile)
+        aceFileDir = 'xsdir.{}'.format(aceFile)
+        plotName = 'p_xs_{}.pdf'.format(aceFile)
+        deck.append(['cp -f tape{0:02g} {1}'.format(tapeAceOut, aceFile)])
+        deck.append(['cp -f tape{0:02g} {1}'.format(tapeXSDirOut, aceFileDir)])
+        deck.append(['ps2pdf tape{0:02g} {1}'.format(viewrOut, plotName)])
+    deck.append(['rm -f xnjoy'])
+    tapeNamesToRemove = ' '.join(get_temporary_tapes_ace(tapes, pendfOutTape, endfNonFreeThermalTapeList, numTemperatures, False))
+    deck.append(['rm -f {0}'.format(tapeNamesToRemove)])
+    try_mkdir(aceDirr)
+    print_njoy_file(aceScriptPath, deck)
+
+    return aceScriptPath, aceFiles
+
 def create_njoy_script(dat, tapes):
     '''Create three NJOY files: one to generate a PENDF output, one to generate a GENDF output, and one to generate an ACE output'''
 
@@ -64,7 +143,7 @@ def create_njoy_script(dat, tapes):
     #
     aceScriptFile = 'runNJOY.sh'
     aceScriptPath = os.path.join(aceDirr, aceScriptFile)
-    aceFileTemplate = '{Z}{A:03}.{s}c'
+    aceFileTemplate = '{Z}{A:03}.9{s}c'
     relPathPendfAce = os.path.relpath(pendfPath, aceDirr)
 
     # Script to run NJOY from ENDF to PENDF:
@@ -151,16 +230,24 @@ def create_njoy_script(dat, tapes):
     deck.append(["cat>input <<EOF"])
     create_moder_input(deck, dat, tapes.endf, tapes.bendf)
     create_purr_input(deck, dat, tapes.bendf, pendfOutTape, tapes.purrOut)
-    create_acer_inputs(deck, dat, tapes.bendf, tapes.purrOut, tapes.aceStart, tapes.aceXSDirStart)
-    create_acer_visualization_inputs(deck, dat, tapes.aceStart, tapes.acerViewStart, tapes.viewrAceStart)
     deck.append(['stop'])
     deck.append(["EOF"])
     deck.append(["./xnjoy<input"])
+    for iT in range(numTemperatures):
+        # Do multiple calls to NJOY (bug in NJOY somewhere)
+        deck.append(["cat>input <<EOF"])
+        create_acer_input(deck, dat, tapes.bendf, tapes.purrOut, tapes.aceStart,
+            tapes.aceXSDirStart, iT)
+        create_acer_visualization_input(deck, dat, tapes.aceStart, tapes.acerViewStart,
+            tapes.viewrAceStart, iT)
+        deck.append(['stop'])
+        deck.append(["EOF"])
+        deck.append(["./xnjoy<input"])
     deck.append(["echo 'Cleaning up and saving ACE files'"])
     aceFiles = []
     for i in range(numTemperatures):
         tapeAceOut, tapeXSDirOut, viewrOut = tapes.aceStart + i, tapes.aceXSDirStart + i, tapes.viewrAceStart + i
-        aceFile = aceFileTemplate.format(A=dat.A, Z=dat.Z, s=90+i)
+        aceFile = aceFileTemplate.format(A=dat.A, Z=dat.Z, s=i)
         aceFiles.append(aceFile)
         aceFileDir = 'xsdir.{}'.format(aceFile)
         plotName = 'p_xs_{}.pdf'.format(aceFile)
@@ -168,7 +255,7 @@ def create_njoy_script(dat, tapes):
         deck.append(['cp -f tape{0:02g} {1}'.format(tapeXSDirOut, aceFileDir)])
         deck.append(['ps2pdf tape{0:02g} {1}'.format(viewrOut, plotName)])
     deck.append(['rm -f xnjoy'])
-    tapeNamesToRemove = ' '.join(get_temporary_tapes_ace(tapes, pendfOutTape, endfNonFreeThermalTapeList, numTemperatures))
+    tapeNamesToRemove = ' '.join(get_temporary_tapes_ace(tapes, pendfOutTape, endfNonFreeThermalTapeList, numTemperatures, True))
     deck.append(['rm -f {0}'.format(tapeNamesToRemove)])
     try_mkdir(aceDirr)
     print_njoy_file(aceScriptPath, deck)
@@ -316,49 +403,77 @@ def create_purr_input(deck, dat, tapeENDFThermalIn, tapePENDFIn, tapePENDFOut):
     deck.append(dat.sig0List)
     deck.append((0, '/'))
 
-def create_acer_inputs(deck, dat, tapeENDFIn, tapePENDFIn, tapesACEROutStart, tapesXSDIROutStart):
+def create_acer_input(deck, dat, tapeENDFIn, tapePENDFIn, tapeACEROutStart, tapeXSDIROutStart, tapeIndex):
     '''Create non-thermal ACE files'''
-    numTherm = len(dat.thermList)
-    thermList = dat.thermList 
-    thermStrList = ['{0:g}'.format(round(val,1)) for val in thermList]
+    tapeACEROut = tapeACEROutStart + tapeIndex
+    tapeXSDIROut = tapeXSDIROutStart + tapeIndex
+    thermStr = '{0:g}'.format(round(dat.thermList[tapeIndex],1))
+    # Generalize this later so it matches up with what's in materials_materials.py:
+    suffixNonThermal = '.{}'.format(90+tapeIndex)
     #
-    for tapeIndex, thermStr in enumerate(thermStrList):
-        tapesACEROut = tapesACEROutStart + tapeIndex
-        tapesXSDIROut = tapesXSDIROutStart + tapeIndex
-        # Generalize this later so it matches up with what's in materials_materials.py:
-        suffixNonThermal = '.{}'.format(90+tapeIndex)
-        deck.append(['acer'])
-        deck.append((tapeENDFIn, tapePENDFIn, 0, tapesACEROut, tapesXSDIROut))
-        # first 1,0,1 = fast(non-thermal), no-print, ascii
-        deck.append((1, 0, 1, suffixNonThermal, '/'))
-        deck.append(("'{} ACE at {} K from {}'".format(dat.nuclideName, thermStr, dat.endfName), '/'))
-        deck.append((dat.mat, thermStr, '/'))
-        deck.append((dat.useNewAngularDist, 0, '/'))
-        deck.append(( '/'))
+    deck.append(['acer'])
+    deck.append((tapeENDFIn, tapePENDFIn, 0, tapeACEROut, tapeXSDIROut))
+    # first 1,0,1 = fast(non-thermal), no-print, ascii
+    deck.append((1, 0, 1, suffixNonThermal, '/'))
+    deck.append(("'{} ACE at {} K from {}'".format(dat.nuclideName, thermStr, dat.endfName), '/'))
+    deck.append((dat.mat, thermStr, '/'))
+    deck.append((dat.useNewAngularDist, 0, '/'))
+    deck.append(( '/'))
 
-def create_acer_visualization_inputs(deck, dat, tapesACERInStart, tapesACEROutStart, tapesVIEWROutStart):
-    '''Create ps of the cross sections from the ACE files'''
-    numTherm = len(dat.thermList)
-    thermList = dat.thermList 
-    thermStrList = ['{0:g}'.format(round(val,1)) for val in thermList]
+def create_thermal_acer_input(deck, dat, tapeENDFIn, tapePENDFIn, tapeACEROutStart, tapeXSDIROutStart, tapeIndex):
+    '''Create thermal ACE files'''
+    tapeACEROut = tapeACEROutStart + tapeIndex
+    tapeXSDIROut = tapeXSDIROutStart + tapeIndex
+    thermStr = '{0:g}'.format(round(dat.thermList[tapeIndex],1))
+    thermZAID = 'u/o2' #example only
+    # Generalize this later so it matches up with what's in materials_materials.py:
+    suffixThermal = '.{}'.format(20+tapeIndex)
+
+    # TODO Populate index
+    # TODO Populate ZAIDs (in materials_njoy)
+    # TODO Worry about dat.mat (needs host nuclide to work)
+    # TODO Populate 'thermalName' (h2o or u/o2)
+    # TODO: Call correctly
+
+    inelasticMT = dat.inelasticMTList[index]
+    elasticMT = get_elasticMT(inelasticMT)
+    elasticCoh= get_elastic_coherence(inelasticMT)
+    
+    inelasticOpt = get_inelastic_option(inelasticMT)
+    elasticOpt = get_elastic_option(inelasticMT)
+    matThermal = dat.matThermalList[index]
+    numAtom = get_num_atoms_in_molecule(inelasticMT)
+    deck.append((matThermal, dat.mat, dat.numAngles, len(dat.thermList), inelasticOpt, elasticCoh, numAtom, inelasticMT, 1))
+
     #
-    tapeIndex = 0
-    for thermVal, thermStr in zip(thermList, thermStrList):
-        tapesACERIn = tapesACERInStart + tapeIndex
-        tapesACEROut = tapesACEROutStart + tapeIndex
-        tapesVIEWROut = tapesVIEWROutStart + tapeIndex
-        deck.append(['acer'])
-        deck.append((0, tapesACERIn, tapesACEROut, 0, 0))
-        deck.append((7, 0, 1, '/')) # change from 7 to 8 for thermal
-        deck.append(['/'])
-        deck.append(['viewr'])
-        deck.append((tapesACEROut, tapesVIEWROut, '/'))
-        tapeIndex += 1
-    names = []
-    for thermStr in thermStrList:
-        # Add nuclide to these strings:
-        names.append('p_xs_{0}K.pdf'.format(thermStr))
-    return names
+    deck.append(['acer'])
+    deck.append((tapeENDFIn, tapePENDFIn, 0, tapeACEROut, tapeXSDIROut))
+    # first 2,0,1 = thermal, no-print, ascii
+    deck.append((2, 0, 1, suffixThermal, len(dat.ZAIDs), '/'))
+    deck.append(("'{} thermal ACE at {} K from {}'".format(dat.thermalName, thermStr, dat.endfName), '/'))
+    zaidStr = ' '.join(['{} 0'.format(ZAID) for ZAID in dat.ZAIDs])
+    deck.append((zaidStr))
+    deck.append((dat.mat, thermStr, "'{}'".format(thermZAID), '/'))
+    # ZAID of nuclides for which this thermal XS applies
+    zaidStr = ' '.join(['{}'.format(ZAID) for ZAID in dat.ZAIDs[:3]]) + '/'
+    deck.append([zaidStr])
+    deck.append((inelasticMT, dat.numThermalAceBins, elasticMT, elasticCoh, dat.numMix, dat.emaxThermalAce, 2))
+
+def create_acer_visualization_input(deck, dat, tapeACERInStart, tapeACEROutStart, tapeVIEWROutStart, tapeIndex, isThermal=False):
+    '''Create ps of the cross sections from the ACE files'''
+    tapeACERIn = tapeACERInStart + tapeIndex
+    tapeACEROut = tapeACEROutStart + tapeIndex
+    tapeVIEWROut = tapeVIEWROutStart + tapeIndex
+    acerOpt = 7
+    if isThermal:
+        acerOpt = 8
+    #
+    deck.append(['acer'])
+    deck.append((0, tapeACERIn, tapeACEROut, 0, 0))
+    deck.append((acerOpt, 0, 1, '/'))
+    deck.append(['/'])
+    deck.append(['viewr'])
+    deck.append((tapeACEROut, tapeVIEWROut, '/'))
 
 def create_plotr_inputs(deck, dat, tapePLOTRIn, tapesPLOTROut, tapesVIEWROut):
     '''Create ps of the flux and total cross section at extreme temperatures and 3 sigma0 values'''
@@ -603,8 +718,10 @@ def get_thermr_tapes(tapes, i):
         thermrOutTape = tapes.thermrOutA
     return  thermrInTape, thermrOutTape
 
-def get_temporary_tapes_ace(tapes, pendfOutTape, endfThermalTapeList, numTemperatures):
-    tapeNumsToRemove = [tapes.endf, tapes.bendf, pendfOutTape, tapes.purrOut]
+def get_temporary_tapes_ace(tapes, pendfOutTape, endfThermalTapeList, numTemperatures, usePurr):
+    tapeNumsToRemove = [tapes.endf, tapes.bendf, pendfOutTape]
+    if usePurr:
+        tapeNumsToRemove.append(tapes.purrOut)
     for endfThermalTape in endfThermalTapeList:
         tapeNumsToRemove.append(endfThermalTape)
     for i in range(numTemperatures):
@@ -676,6 +793,27 @@ class NJOYDat():
         #self.suffixNonThermal = '.90' # should be a list
         #self.suffixThermal = '.20'  # should be a list
         self.useNewAngularDist = 1
+        # Thermal ACE
+        self.numMix = 1 #True except for BeO or C6H6 (Benzene)
+        self.numThermalAceBins = 128
+        self.emaxThermalAce = 1000.
+        # ZAIDs for which the thermal ACE treatment applies
+        self.ZAIDs = []
+
+def get_elasticMT(inelasticMT):
+    # From Table 25 in NJOY2012 manual
+    if inelasticMT in [222, 228, 227]:
+        return 0
+    else:
+        return inelasticMT + 1
+
+def get_elastic_coherence(inelasticMT):
+    # 0: coherent elastic (or no data); 1: incoherent elastic
+    # From Table 4 in NJOY2012 manual
+    if inelasticMT in [223, 225, 235]:
+        return 1
+    else:
+        return 0
 
 def get_num_atoms_in_molecule(inelasticMT):
     # It is unclear what n is for the NSC TRIGA reactor for the ZrH_n fuel (MT 225)
