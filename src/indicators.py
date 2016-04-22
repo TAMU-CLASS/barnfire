@@ -199,24 +199,22 @@ def do_all(inputDict):
         if workOpt == 'wgt':
             materials.append(mat.get_triga_clad_material())
             materials.append(mat.get_triga_zirconium_material())
-            materials.append(mat.get_triga_irradiation_tube_material())
             materials.append(mat.get_triga_graphite_material())
             materials.append(mat.get_triga_borated_graphite_material())
             materials.append(mat.get_triga_b4c_material())
             materials.append(mat.get_triga_moderator_material())
-            materials.append(mat.get_triga_air_tube_material())
+            materials.append(mat.get_triga_air_material())
             materials.append(mat.get_triga_grid_plate_material())
     elif materialOpt == 'trigamore':
         materials.append(mat.get_triga_fuel_material())
         materials.append(mat.get_triga_clad_material())
         materials.append(mat.get_triga_zirconium_material())
-        materials.append(mat.get_triga_irradiation_tube_material())
         if workOpt == 'wgt':
             materials.append(mat.get_triga_graphite_material())
             materials.append(mat.get_triga_borated_graphite_material())
             materials.append(mat.get_triga_b4c_material())
             materials.append(mat.get_triga_moderator_material())
-            materials.append(mat.get_triga_air_tube_material())
+            materials.append(mat.get_triga_air_material())
             materials.append(mat.get_triga_grid_plate_material())
     elif materialOpt == 'deb':
         materials.append(mat.get_bruss_enriched_rod_fuel_material())

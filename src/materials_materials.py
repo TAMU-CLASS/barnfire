@@ -60,12 +60,13 @@ def get_materials_name2function_dict():
         'tZIRC': get_triga_zirconium_material,
         'tCLAD': get_triga_clad_material,
         'tMOD': get_triga_moderator_material,
+        'tAIR': get_triga_air_material,
+        'tGRIDPLATE': get_triga_grid_plate_material,
+        'tGRAPHITE': get_triga_graphite_material,
         'tBORATEDGRAPHITE': get_triga_borated_graphite_material,
         'tB4C': get_triga_b4c_material,
-        'tGRAPHITE': get_triga_graphite_material,
-        'tAIRTUBE': get_triga_air_tube_material,
-        'tIRRADIATIONTUBE': get_triga_irradiation_tube_material,
-        'tGRIDPLATE': get_triga_grid_plate_material,
+        #'tAIRTUBE': get_triga_air_tube_material,
+        #'tIRRADIATIONTUBE': get_triga_irradiation_tube_material,
         # Iron (for time-dependent dissertation problem)
         'iron': get_iron_material,
         'thickiron': get_thick_iron_material,
@@ -416,7 +417,7 @@ def get_h2o_material():
         abundanceDict=abundanceDict, chordLength=chordLength,
         elemAtomFracDict=elemAtomFracDict, massDensity=massDensity)
     return material
-    
+
 def get_cold_h2o_material(T=400.):
     material = get_h2o_material()
     material.update_temperature(T)
@@ -896,6 +897,28 @@ def get_triga_grid_plate_material():
         temperatureIndex=temperatureIndex)
     return material
 
+def get_triga_air_material():
+    shortName = 'tAIR'
+    longName = 'Air'
+    atomDensity = 5.03509E-5
+    fuelRadius = 'unshielded'
+    temperature = 293.6 #K
+    temperatureIndex = 0 # X in .9Xc
+    thermalOpt = 'free'
+    elemAtomFracDict = {'O': 0.2, 'N': 0.8}
+    #
+    chordLength = calc_chord_length(fuelRadius)
+    symDict, ZList, ZAList = get_all_isotopes(elemAtomFracDict)
+    abundanceDict = lookup_natl_abundances(ZAList)
+    #
+    material = Material(
+        shortName=shortName, longName=longName,
+        temperature=temperature, thermalOpt=thermalOpt,
+        symDict=symDict, ZList=ZList, ZAList=ZAList,
+        abundanceDict=abundanceDict, chordLength=chordLength,
+        elemAtomFracDict=elemAtomFracDict, atomDensity=atomDensity,
+        temperatureIndex=temperatureIndex)
+    return material
 
 ###############################################################################
 def get_bruss_enriched_rod_fuel_material():
@@ -1143,7 +1166,7 @@ def get_multi_temperature_h2o_material_Ti(iT):
     #P = 15.5 #MPa
     material = get_multi_temperature_h2o_material_base()
     Tgrid = get_multi_temperature_h2o_material_Tgrid()
-    T = Tgrid[iT] 
+    T = Tgrid[iT]
     rho = steam(P=P, T=T).rho / 1000
     shortName = 'mtH2O_{}'.format(iT)
     longName = 'light water ({} K)'.format(T)
@@ -1152,7 +1175,7 @@ def get_multi_temperature_h2o_material_Ti(iT):
     material.update_mass_density(rho)
     material.update_names(shortName, longName)
     return material
-    
+
 def get_multi_temperature_h2o_material_T0():
     return get_multi_temperature_h2o_material_Ti(0)
 
@@ -1190,7 +1213,7 @@ def get_multi_temperature_triga_fuel_material_Tgrid():
 def get_multi_temperature_triga_fuel_material_Ti(iT):
     material = get_multi_temperature_triga_fuel_material_base()
     Tgrid = get_multi_temperature_triga_fuel_material_Tgrid()
-    T = Tgrid[iT] 
+    T = Tgrid[iT]
     shortName = 'mtTFUEL_{}'.format(iT)
     longName = '{} ({} K)'.format(material.longName, T)
     material.update_temperature(T)
@@ -1226,7 +1249,7 @@ def get_multi_temperature_triga_fuel_material_T7():
 
 def get_multi_temperature_triga_fuel_material_T8():
     return get_multi_temperature_triga_fuel_material_Ti(8)
-    
+
 ###############################################################################
 def get_all_isotopes(elemDict):
     symList = elemDict.keys()

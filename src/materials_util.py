@@ -33,7 +33,9 @@ def thin_list(inList, useLinSpacing=True):
 
 ###############################################################################
 def calc_chord_length(fuelRadius):
-    if fuelRadius:
+    if fuelRadius == 'unshielded':
+        return 1.e10
+    elif fuelRadius:
         surfaceArea = 2 * np.pi * fuelRadius
         volume = np.pi * fuelRadius * fuelRadius
         chordLength = surfaceArea / (4 * volume)
