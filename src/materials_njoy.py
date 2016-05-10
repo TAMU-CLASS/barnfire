@@ -44,6 +44,7 @@ def create_njoy_decks(inputDict, globalZAList, njoyTDict, njoyBXSDict, globalTXS
     tapes = njoy.NJOYTape()
     if verbosity:
         print '------- Creating NJOY decks -------'
+        print 'Folder ACE_file temperature(K)'
     for (Z,A) in sorted(globalZAList):
         # Metastable isomeric states use A of the groundstate plus 400 (like MCNP)
         if A // 400 > 0:
@@ -76,16 +77,72 @@ def create_njoy_decks(inputDict, globalZAList, njoyTDict, njoyBXSDict, globalTXS
         dat.inelasticMTList = inelasticThermalMTList
         dat.endfThermalFileList=thermalFilenameList
         #
+        if verbosity > 1:
+            print Z, A, dat.sig0List, inelasticThermalMTList, thermalMATList
         if verbosity:
-            print Z, A, dat.sig0List, dat.thermList, inelasticThermalMTList, thermalMATList
+            for i,T in enumerate(dat.thermList):
+                print '{0} {1:2d}{2:03d}.9{3}c {4:.1f}'.format(dat.nuclideName, Z, Atrue, i, T)
         #
         pendfScriptPath, gendfScriptPath, aceScriptPath, aceFiles = njoy.create_njoy_script(dat, tapes)
         pendfScriptPaths.append(pendfScriptPath)
         gendfScriptPaths.append(gendfScriptPath)
         aceScriptPaths.append(aceScriptPath)
         aceFilesDict[dat.nuclideName] = aceFiles
-    # TODO Insert loop here over thermal options (that adds to both aceScriptPaths and aceFilesDict)
+    # Generate bound thermal ACE decks
+    short2mcnpDict = util.get_thermal_short2mcnp_dict()
+    mcnp2zaDict = util.get_thermal_mcnp2za_dict()
+    mcnp2zaidListDict = util.get_thermal_mcnp2zaidlist_dict()
+    # Determine unique bound thermal names
+    thermalNamesSet = set()
+    for Z in sorted(globalTXSDict):
+        for thermalName in globalTXSDict[Z]:
+            if thermalName in short2mcnpDict:
+                thermalNamesSet.add(thermalName)
+    # Create an ACE deck for each unique bound thermal name
+    for thermalName in thermalNamesSet:
+        thermalNameList = [thermalName]
+        mcnpName = short2mcnpDict[thermalName]
+        # Which Z,A to reference for PENDF file
+        Z,A = mcnp2zaDict[mcnpName]
+        #
+        if A // 400 > 0:
+            isExcitedState = True
+            metastableStr = 'm'
+        else:
+            isExcitedState = False
+            metastableStr = ''
+        Atrue = A % 400
+        dat = njoy.NJOYDat(A=Atrue, Z=Z, endfName=endfName)
+        dat.thermList = sorted(njoyTDict[(Z,A)])
+        dat.mat = nd.mats[(Z, Atrue, isExcitedState)]
+        dat.thermalNuclideName = mcnpName
+        dat.thermalFileName = dat.thermalNuclideName.replace('/', '_')
+        dat.nuclideName = '{0}-{1}{2}'.format(nd.z2sym[Z].lower(), Atrue, metastableStr)
+        dat.endfFile = 'endf_{0:02d}{1:03d}{2}_{3}'.format(Z, Atrue, metastableStr, endfLib)
+        dat.ZAIDs = mcnp2zaidListDict[mcnpName]
+        #
+        thermalFilenameList = [name2filenameDict[name] for name in thermalNameList
+            if name in name2filenameDict]
+        thermalMTList = [short2mtDict[name] for name in thermalNameList]
+        inelasticThermalMTList = [mt for mt in thermalMTList if mt in allowedInelasticThermalMTList]
+        thermalMATList = [short2matDict[name] for name in thermalNameList if name in short2matDict]
+        dat.thermalMTList = thermalMTList
+        dat.matThermalList = thermalMATList
+        dat.inelasticMTList = inelasticThermalMTList
+        dat.endfThermalFileList = thermalFilenameList
+        #
+        if verbosity > 1:
+            print thermalName, short2mcnpDict[thermalName], Z, A, inelasticThermalMTList, thermalMATList
+        if verbosity:
+            for i,T in enumerate(dat.thermList):
+                print '{} {}.2{}t {:.1f}'.format(dat.thermalFileName, mcnpName, i, T)
+        #
+        thermalAceScriptPath, thermalAceFiles = njoy.create_thermal_ace_njoy_script(dat, tapes)
+        aceScriptPaths.append(thermalAceScriptPath)
+        aceFilesDict[dat.thermalFileName] = thermalAceFiles
+    # Create a driver for both fast (non-thermal) and (bound-)thermal NJOY calls
     njoy.create_njoy_driver(pendfScriptPaths, gendfScriptPaths, aceScriptPaths)
+    # Create a script to copy ACE files from ace directory to xdata directory
     njoy.create_ace_copier(aceFilesDict)
 
 ###############################################################################
@@ -176,7 +233,7 @@ def get_njoy_temperatures(globalZAList, njoyTDict, globalTDict, globalTXSDict):
         while len(njoyTDict[(Z,A)]) > maxNumTemperatures:
             # This may unintentially preferentially thin one thermal XS grid over another
             # in the case of multiple non-free thermal XS per nuclide
-            itemToRemove = thin_list(njoyTDict[(Z,A)])
+            itemToRemove = util.thin_list(njoyTDict[(Z,A)])
             njoyTDict[(Z,A)].remove(itemToRemove)
 
 def get_njoy_background_xs(globalZAList, njoyBXSDict, globalBXSDict, useCommonGrid=False):
@@ -196,7 +253,7 @@ def get_njoy_background_xs(globalZAList, njoyBXSDict, globalBXSDict, useCommonGr
         njoyBXSDict[(Z,A)].update([maxBXS])
         #
         while len(njoyBXSDict[(Z,A)]) > maxNumBXS:
-            itemToRemove = thin_list(njoyBXSDict[(Z,A)], False)
+            itemToRemove = util.thin_list(njoyBXSDict[(Z,A)], False)
             njoyBXSDict[(Z,A)].remove(itemToRemove)
 
 def get_common_sigma0_grid():

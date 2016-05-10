@@ -76,12 +76,16 @@ def get_thermal_short2mat_dict():
     return {'free': 0, 'hh2o': 1, 'hzrhinel': 7, 'graphinel': 31, 'ouo2inel': 75, 'alinel': 53, 'zrzrhinel': 58, 'uuo2inel': 48}
 
 def get_thermal_short2mcnp_dict():
-    '''Returns a dict that maps thermal XS shortname to MCNP thermal material name. See Appendix G in MCNP manual vol I (this manual is approved for public release).'''
+    '''Returns a dict that maps bound thermal XS shortname to MCNP thermal material name. See Appendix G in MCNP manual vol I (this manual is approved for public release).'''
     return {'hh2o': 'lwtr', 'zrzrhinel': 'zr/h', 'hzrhinel': 'h/zr', 'uuo2inel': 'u/o2', 'ouo2inel': 'o2/u', 'graphinel': 'grph', 'feinel': 'fe56', 'alinel': 'al27'}
 
-def get_thermal_mcnp2zaid_dict():
-    '''Returns a dict that maps MCNP thermal material name to the nuclides that use this thermal option. See Appendix G in MCNP manual vol I.'''
+def get_thermal_mcnp2zaidlist_dict():
+    '''Returns a dict that maps MCNP bound thermal material name to the nuclides that use this thermal option. See Appendix G in MCNP manual vol I.'''
     return {'lwtr': ['1001'], 'al27': ['13027'], 'fe56': ['26056'], 'grph': ['6000', '6012'], 'h/zr': ['1001'], 'o2/u': ['8016', '8017', '8018'], 'u/o2': ['92238'], 'zr/h': ['40000', '40090', '40091', '40092', '40094', '40096']}
+
+def get_thermal_mcnp2za_dict():
+    '''Returns a dict that maps MCNP bound thermal material name to the (Z,A) of the nuclide from which to read PENDF tape (for ACE only). Uses nuclide with highest atom fraction.'''
+    return {'lwtr': (1,1), 'al27': (13,27), 'fe56': (26,56), 'grph': (6,0), 'h/zr': (1,1), 'o2/u': (8,16), 'u/o2': (92,238), 'zr/h': (40,90)}
 
 ###############################################################################
 def print_newline(verbosity=False):
