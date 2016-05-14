@@ -86,6 +86,12 @@ def get_materials_name2function_dict():
         'mtH2O_0': get_multi_temperature_h2o_material_T0,
         'mtH2O_1': get_multi_temperature_h2o_material_T1,
         'mtH2O_2': get_multi_temperature_h2o_material_T2,
+        'mtH2O_3': get_multi_temperature_h2o_material_T3,
+        'mtH2O_4': get_multi_temperature_h2o_material_T4,
+        'mtH2O_5': get_multi_temperature_h2o_material_T5,
+        'mtH2O_6': get_multi_temperature_h2o_material_T6,
+        'mtH2O_7': get_multi_temperature_h2o_material_T7,
+        'mtH2O_8': get_multi_temperature_h2o_material_T8,
         'mtTFUEL_0': get_multi_temperature_triga_fuel_material_T0,
         'mtTFUEL_1': get_multi_temperature_triga_fuel_material_T1,
         'mtTFUEL_2': get_multi_temperature_triga_fuel_material_T2,
@@ -94,6 +100,16 @@ def get_materials_name2function_dict():
         'mtTFUEL_5': get_multi_temperature_triga_fuel_material_T5,
         'mtTFUEL_6': get_multi_temperature_triga_fuel_material_T6,
         'mtTFUEL_7': get_multi_temperature_triga_fuel_material_T7,
+        'mtTGRAPHITE_0': get_multi_temperature_triga_graphite_material_T0,
+        'mtTGRAPHITE_1': get_multi_temperature_triga_graphite_material_T1,
+        'mtTGRAPHITE_2': get_multi_temperature_triga_graphite_material_T2,
+        'mtTGRAPHITE_3': get_multi_temperature_triga_graphite_material_T3,
+        'mtTGRAPHITE_4': get_multi_temperature_triga_graphite_material_T4,
+        'mtTGRAPHITE_5': get_multi_temperature_triga_graphite_material_T5,
+        'mtTGRAPHITE_6': get_multi_temperature_triga_graphite_material_T6,
+        'mtTGRAPHITE_7': get_multi_temperature_triga_graphite_material_T7,
+        'mtTGRAPHITE_8': get_multi_temperature_triga_graphite_material_T8,
+        'mtTGRAPHITE_9': get_multi_temperature_triga_graphite_material_T9,
     }
 
 ###############################################################################
@@ -1319,9 +1335,56 @@ def get_multi_temperature_triga_fuel_material_T6():
 def get_multi_temperature_triga_fuel_material_T7():
     return get_multi_temperature_triga_fuel_material_Ti(7)
 
-def get_multi_temperature_triga_fuel_material_T8():
-    return get_multi_temperature_triga_fuel_material_Ti(8)
+###############################################################################
+def get_multi_temperature_triga_graphite_material_base():
+    return get_triga_graphite_material()
 
+def get_multi_temperature_triga_graphite_material_Tgrid():
+    return [296., 400., 500., 600., 700., 800., 1000., 1200., 1600., 2000.] #K
+
+def get_multi_temperature_triga_graphite_material_Ti(iT):
+    material = get_multi_temperature_triga_graphite_material_base()
+    Tgrid = get_multi_temperature_triga_graphite_material_Tgrid()
+    T = Tgrid[iT]
+    shortName = 'mtTGRAPHITE_{}'.format(iT)
+    longName = '{} ({} K)'.format(material.longName, T)
+    material.update_temperature(T)
+    material.update_temperature_index(iT) # X in .9Xc
+    # MASS DENSITY SHOULD BE UPDATED TO ACCOUNT FOR THERMAL EXPANSION
+    #material.update_mass_density(rho)
+    material.update_names(shortName, longName)
+    return material
+
+def get_multi_temperature_triga_graphite_material_T0():
+    return get_multi_temperature_triga_graphite_material_Ti(0)
+
+def get_multi_temperature_triga_graphite_material_T1():
+    return get_multi_temperature_triga_graphite_material_Ti(1)
+
+def get_multi_temperature_triga_graphite_material_T2():
+    return get_multi_temperature_triga_graphite_material_Ti(2)
+
+def get_multi_temperature_triga_graphite_material_T3():
+    return get_multi_temperature_triga_graphite_material_Ti(3)
+
+def get_multi_temperature_triga_graphite_material_T4():
+    return get_multi_temperature_triga_graphite_material_Ti(4)
+
+def get_multi_temperature_triga_graphite_material_T5():
+    return get_multi_temperature_triga_graphite_material_Ti(5)
+
+def get_multi_temperature_triga_graphite_material_T6():
+    return get_multi_temperature_triga_graphite_material_Ti(6)
+
+def get_multi_temperature_triga_graphite_material_T7():
+    return get_multi_temperature_triga_graphite_material_Ti(7)
+
+def get_multi_temperature_triga_graphite_material_T8():
+    return get_multi_temperature_triga_graphite_material_Ti(8)
+
+def get_multi_temperature_triga_graphite_material_T9():
+    return get_multi_temperature_triga_graphite_material_Ti(9)
+    
 ###############################################################################
 def get_all_isotopes(elemDict):
     symList = elemDict.keys()
@@ -1749,6 +1812,7 @@ class Material():
                 for v in vList:
                     if v in therm2mcnpDict:
                         print '     {}.{}t'.format(therm2mcnpDict[v], 20+iT)
+            print '(Warning: x in .9xc and .2xt may not be accurate)'
 
     ################################################################
     def make_lists_sets(self):
