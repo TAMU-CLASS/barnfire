@@ -56,6 +56,7 @@ def get_materials_name2function_dict():
         'cFCHAMBER': get_c5g7_fission_chamber_material,
         'cCR': get_c5g7_control_rod_material,
         # TRIGA (BOL)
+        'tcFUEL': get_triga_fuel_complete_material,
         'tFUEL': get_triga_fuel_material,
         'tZIRC': get_triga_zirconium_material,
         'tCLAD': get_triga_clad_material,
@@ -661,6 +662,77 @@ def get_c5g7_control_rod_material():
     return material
 
 ###############################################################################
+def get_triga_fuel_complete_material():
+    shortName = 'tcFUEL'
+    longName = 'U-ZrH fuel w complete elems'
+    massDensity = 7.03671478387 #g/cc
+    fuelRadius = 1.7920 #cm
+    temperature = 296. #K
+    temperatureIndex = 0 # X in .9Xc
+    thermalOpt = 'zrh'
+    uAtomFractionsDict = {234: 0.00237412107611, 235: 0.191509644035, 236: 0.00245944064973, 237: 9.38712924854e-08, 238: 0.803656700368, 239: 2.76322744152e-21}
+    npAtomFractionsDict = {236: 4.87314780932e-07, 237: 0.98648993846, 238: 1.72038664926e-05, 239: 0.0134923703586}
+    puAtomFractionsDict = {236: 1.06773890918e-12, 238: 0.000183915788017, 239: 0.97784115666, 240: 0.0205601536476, 241: 0.00140371098018, 242: 1.10629231985e-05, 243: 4.68515756757e-18}
+    krAtomFractionsDict = {83: 1.0}
+    moAtomFractionsDict = {95: 0.999628510895, 99: 0.000371489104873}
+    tcAtomFractionsDict = {99: 1.0}
+    ruAtomFractionsDict = {101: 1.0}
+    rhAtomFractionsDict = {103: 0.999987416438, 105: 1.25835619908e-05}
+    pdAtomFractionsDict = {105: 1.0}
+    agAtomFractionsDict = {109: 1.0}
+    cdAtomFractionsDict = {113: 1.0}
+    iAtomFractionsDict = {129: 0.161950942944, 131: 0.00445235419208, 135: 0.833596702864}
+    xeAtomFractionsDict = {131: 1.0}
+    csAtomFractionsDict = {133: 0.350243510007, 134: 0.00113387916809, 135: 0.321648524355, 137: 0.32697408647}
+    baAtomFractionsDict = {140: 1.0}
+    laAtomFractionsDict = {139: 1.0}
+    prAtomFractionsDict = {141: 1.0}
+    ndAtomFractionsDict = {143: 0.592936443146, 145: 0.407063556854}
+    pmAtomFractionsDict = {147: 0.998954629436, 148: 9.6327940823e-05, 149: 0.000126216870906, 548: 0.000822825752352}
+    smAtomFractionsDict = {147: 0.331469151271, 149: 0.100586982076, 150: 0.308269138205, 151: 0.126675020028, 152: 0.132999708419}
+    euAtomFractionsDict = {153: 0.876051566418, 154: 0.0174919650421, 155: 0.104649622945, 156: 0.00180684559459}
+    gdAtomFractionsDict = {155: 0.796768926336, 157: 0.203231073664}
+    erAtomFractionsDict = {162: 0.00137343144164, 164: 0.0159304392447, 166: 0.334071882669, 167: 0.199177751989, 168: 0.30050371386, 170: 0.148942780795}
+    elemMassFracDict = {'U': 0.300040763497, 'Np': 5.51300952526e-06, 'Pu': 0.000358903274981, 'Kr': 3.44055902736e-06, 'Mo': 4.42040914636e-05, 'Tc': 4.74403500563e-05, 'Ru': 4.10396870386e-05, 'Rh': 2.38978004217e-05, 'Pd': 8.66313582917e-06, 'Ag': 3.51488451214e-07, 'Cd': 5.34122209673e-08, 'I': 3.52451301271e-05, 'Xe': 2.12993243475e-14, 'Cs': 0.000197945243164, 'Ba': 6.65278315976e-07, 'La': 7.03637701299e-05, 'Pr': 6.27897228019e-05, 'Nd': 0.000109340460356, 'Pm': 1.47672440039e-05, 'Sm': 3.12491981564e-05, 'Eu': 2.37042807623e-06, 'Gd': 7.48212729834e-08, 'Er': 0.00860558224939, 'Zr': 0.675063181105, 'H': 0.0115483336522, 'C': 0.00364500346199, 'Hf': 3.88179282427e-05}
+    #
+    chordLength = calc_chord_length(fuelRadius)
+    symDict, ZList, ZAList = get_all_isotopes(elemMassFracDict)
+    abundanceDict = lookup_natl_abundances(ZAList)
+    override_abundances(ZAList, abundanceDict, uAtomFractionsDict, 'U', 'Mass')
+    override_abundances(ZAList, abundanceDict, npAtomFractionsDict, 'Np', 'Mass')
+    override_abundances(ZAList, abundanceDict, puAtomFractionsDict, 'Pu', 'Mass')
+    override_abundances(ZAList, abundanceDict, krAtomFractionsDict, 'Kr', 'Mass')
+    override_abundances(ZAList, abundanceDict, moAtomFractionsDict, 'Mo', 'Mass')
+    override_abundances(ZAList, abundanceDict, tcAtomFractionsDict, 'Tc', 'Mass')
+    override_abundances(ZAList, abundanceDict, ruAtomFractionsDict, 'Ru', 'Mass')
+    override_abundances(ZAList, abundanceDict, rhAtomFractionsDict, 'Rh', 'Mass')
+    override_abundances(ZAList, abundanceDict, pdAtomFractionsDict, 'Pd', 'Mass')
+    override_abundances(ZAList, abundanceDict, agAtomFractionsDict, 'Ag', 'Mass')
+    override_abundances(ZAList, abundanceDict, cdAtomFractionsDict, 'Cd', 'Mass')
+    override_abundances(ZAList, abundanceDict, iAtomFractionsDict, 'I', 'Mass')
+    override_abundances(ZAList, abundanceDict, xeAtomFractionsDict, 'Xe', 'Mass')
+    override_abundances(ZAList, abundanceDict, csAtomFractionsDict, 'Cs', 'Mass')
+    override_abundances(ZAList, abundanceDict, baAtomFractionsDict, 'Ba', 'Mass')
+    override_abundances(ZAList, abundanceDict, laAtomFractionsDict, 'La', 'Mass')
+    override_abundances(ZAList, abundanceDict, prAtomFractionsDict, 'Pr', 'Mass')
+    override_abundances(ZAList, abundanceDict, ndAtomFractionsDict, 'Nd', 'Mass')
+    override_abundances(ZAList, abundanceDict, pmAtomFractionsDict, 'Pm', 'Mass')
+    override_abundances(ZAList, abundanceDict, smAtomFractionsDict, 'Sm', 'Mass')
+    override_abundances(ZAList, abundanceDict, euAtomFractionsDict, 'Eu', 'Mass')
+    override_abundances(ZAList, abundanceDict, gdAtomFractionsDict, 'Gd', 'Mass')
+    override_abundances(ZAList, abundanceDict, erAtomFractionsDict, 'Er', 'Mass')
+    override_abundances_as_elemental(ZAList, abundanceDict,  'C')
+    #
+    material = Material(
+        shortName=shortName, longName=longName,
+        temperature=temperature, thermalOpt=thermalOpt,
+        symDict=symDict, ZList=ZList, ZAList=ZAList,
+        abundanceDict=abundanceDict, chordLength=chordLength,
+        elemMassFracDict=elemMassFracDict, massDensity=massDensity,
+        temperatureIndex=temperatureIndex)
+    return material
+
+
 def get_triga_fuel_material():
     shortName = 'tFUEL'
     longName = 'U-ZrH fuel'
@@ -1368,7 +1440,7 @@ def get_all_isotopes(elemDict):
         elif sym == 'Es':
             ZAList += get_Es_isotopes()
         elif sym == 'Fm':
-            ZAList += get_Fm_isotopes()
+            ZAList += get_Fm_isotopes() 
         else:
             ZAList += get_isotope_ZAs(Z)
     return symDict, ZList, ZAList
@@ -1376,7 +1448,9 @@ def get_all_isotopes(elemDict):
 def get_isotope_ZAs(Z, cutoff=0.005):
     '''Get all isotopes with natural abundance at least cutoff for element Z.
     nd.isotopes does not return any metastable A's.'''
-    AList = [A for A in nd.isotopes[Z] if nd.nuc(Z, A)['abundance'].nominal_value > cutoff]
+    ''' Skip isotopes with only metastable isomers'''
+    AList = [A for A in nd.isotopes[Z] if 0.0 in nd.nuclides[(Z,A)] \
+             if nd.nuc(Z, A)['abundance'].nominal_value > cutoff]
     return [(Z, A) for A in AList]
 
 def get_Th_isotopes():
@@ -1502,6 +1576,7 @@ def get_Fm_isotopes():
     ZAList = []
     ZAList.append((100, 255))
     return ZAList
+    
 
 ###############################################################################
 def lookup_natl_abundances(ZAList):
@@ -1531,8 +1606,9 @@ def override_abundances_as_elemental(ZAList, abundanceDict, sym):
     ZAList.append((Zthis,0))
     abundanceDict[(Zthis, 0)] = 1.0
 
-def override_abundances(ZAList, abundanceDict, atomFractionsDict, sym):
+def override_abundances(ZAList, abundanceDict, FractionsDict, sym, AoM = 'Atom'):
     '''Override isotopes and abundances for element given by sym'''
+    '''set AoM = 'Atom' if atomFrac is used, otherwise use 'Mass' '''
     Zthis = nd.sym2z[sym]
     AList = [A for (Z,A) in ZAList if Z == Zthis]
     #
@@ -1541,11 +1617,15 @@ def override_abundances(ZAList, abundanceDict, atomFractionsDict, sym):
         abundanceDict[(Zthis, A)] = 0.0
     #
     # Replace with abundances in atomFractionsDict
-    if not atomFractionsDict:
-        raise ValueError('atomsFractionsDict for {0} must be non-empty.'.format(sym))
+    if not FractionsDict:
+        raise ValueError('FractionsDict for {0} must be non-empty.'.format(sym))
     # Python guarantees values() and keys() are congruent if no changes to the dict are made between calls
-    atomFractionsList = np.array(atomFractionsDict.values())
-    atomFractionsKeys = atomFractionsDict.keys()
+    atomFractionsList = np.array(FractionsDict.values())
+    atomFractionsKeys = FractionsDict.keys()
+    if AoM != 'Atom':  # If mass fraction are given, convert to atom fraction
+        atomMolarMassList = [nd.nuc(Zthis, A%400)['weight'].nominal_value for A in atomFractionsKeys]
+        atomFractionsList = [ massFrac/molarMass for massFrac, molarMass in zip(\
+                             atomMolarMassList, atomFractionsList)]
     norm = np.sum(atomFractionsList)
     if norm == 0.:
         # If all atom fractions are zero, normalize by making each equal to 1/(# isotopes)
@@ -1555,14 +1635,14 @@ def override_abundances(ZAList, abundanceDict, atomFractionsDict, sym):
     elif norm > 1.1 or norm < 0.9:
         # If atom fractions are very unnormalized, multiplicatively normalize
         for A in atomFractionsKeys:
-            abundanceDict[(Zthis, A)] = atomFractionsDict[A] / norm
+            abundanceDict[(Zthis, A)] = FractionsDict[A] / norm
     else:
         # Else, normalize by changing the abundance of the most abundant isotope
         majorA = atomFractionsKeys[np.argmax(atomFractionsList)]
-        partialSum = np.sum([atomFractionsDict[A] for A in atomFractionsKeys if A != majorA])
-        atomFractionsDict[majorA] = 1.0 - partialSum
+        partialSum = np.sum([FractionsDict[A] for A in atomFractionsKeys if A != majorA])
+        FractionsDict[majorA] = 1.0 - partialSum
         for A in atomFractionsKeys:
-            abundanceDict[(Zthis, A)] = atomFractionsDict[A]
+            abundanceDict[(Zthis, A)] = FractionsDict[A]
     #
     # Add in new isotopes to ZAList
     newAs = [A for A in atomFractionsKeys if (Zthis, A) not in ZAList]
