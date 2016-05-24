@@ -65,6 +65,7 @@ def get_materials_name2function_dict():
         'tGRAPHITE': get_triga_graphite_material,
         'tBORATEDGRAPHITE': get_triga_borated_graphite_material,
         'tB4C': get_triga_b4c_material,
+        'tLEAD': get_triga_lead_material,
         #'tAIRTUBE': get_triga_air_tube_material,
         #'tIRRADIATIONTUBE': get_triga_irradiation_tube_material,
         # Iron (for time-dependent dissertation problem)
@@ -664,7 +665,7 @@ def get_triga_fuel_material():
     shortName = 'tFUEL'
     longName = 'U-ZrH fuel'
     atomDensity = 8.71115E-2
-    fuelRadius = 1.7920 #cm
+    fuelRadius = 1.7411 #cm
     temperature = 296. #K
     temperatureIndex = 0 # X in .9Xc
     thermalOpt = 'zrh'
@@ -933,6 +934,29 @@ def get_triga_air_material():
         symDict=symDict, ZList=ZList, ZAList=ZAList,
         abundanceDict=abundanceDict, chordLength=chordLength,
         elemAtomFracDict=elemAtomFracDict, atomDensity=atomDensity,
+        temperatureIndex=temperatureIndex)
+    return material
+
+def get_triga_lead_material():
+    shortName = 'tLEAD'
+    longName = 'lead'
+    massDensity = 11.34 # g/cc
+    fuelRadius = 10. #cm (complete guess)
+    temperature = 293.6 #K
+    temperatureIndex = 0 # X in .9Xc
+    thermalOpt = 'free'
+    elemAtomFracDict = {'Pb': 1.0}
+    #
+    chordLength = calc_chord_length(fuelRadius)
+    symDict, ZList, ZAList = get_all_isotopes(elemAtomFracDict)
+    abundanceDict = lookup_natl_abundances(ZAList)
+    #
+    material = Material(
+        shortName=shortName, longName=longName,
+        temperature=temperature, thermalOpt=thermalOpt,
+        symDict=symDict, ZList=ZList, ZAList=ZAList,
+        abundanceDict=abundanceDict, chordLength=chordLength,
+        elemAtomFracDict=elemAtomFracDict, massDensity=massDensity,
         temperatureIndex=temperatureIndex)
     return material
 

@@ -403,6 +403,8 @@ def auto_apportion(observations, numElementsRRR, groupBdrs, coarseBdrs, apportio
     metric = np.zeros(numCoarseGroups)
     numFineGroupsPerCoarseGroup = np.zeros(numCoarseGroups, dtype=np.int)
     timeBirch = 0.0
+    if numCoarseGroups == 1:
+        return np.array([numElementsRRR])
     for coarseGroup in range(len(coarseBdrs)-1):
         # Only look at the fine groups within the current coarse group
         strt = np.argmin(np.abs(groupBdrs - coarseBdrs[coarseGroup+1]))

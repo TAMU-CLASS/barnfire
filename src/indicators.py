@@ -205,6 +205,7 @@ def do_all(inputDict):
             materials.append(mat.get_triga_moderator_material())
             materials.append(mat.get_triga_air_material())
             materials.append(mat.get_triga_grid_plate_material())
+            materials.append(mat.get_triga_lead_material())
     elif materialOpt == 'trigamore':
         materials.append(mat.get_triga_fuel_material())
         materials.append(mat.get_triga_clad_material())
@@ -216,6 +217,7 @@ def do_all(inputDict):
             materials.append(mat.get_triga_moderator_material())
             materials.append(mat.get_triga_air_material())
             materials.append(mat.get_triga_grid_plate_material())
+            materials.append(mat.get_triga_lead_material())
     elif materialOpt == 'deb':
         materials.append(mat.get_bruss_enriched_rod_fuel_material())
     else:
