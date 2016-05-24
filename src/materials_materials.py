@@ -666,7 +666,7 @@ def get_triga_fuel_complete_material():
     shortName = 'tcFUEL'
     longName = 'U-ZrH fuel w complete elems'
     massDensity = 7.03671478387 #g/cc
-    fuelRadius = 1.7920 #cm
+    fuelRadius = 1.7411 #cm
     temperature = 296. #K
     temperatureIndex = 0 # X in .9Xc
     thermalOpt = 'zrh'
