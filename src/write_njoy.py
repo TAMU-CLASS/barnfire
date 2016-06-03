@@ -25,7 +25,6 @@ def create_thermal_ace_njoy_script(dat, tapes):
     aceRootDirr = dirDict['ace']
     njoyPath = os.path.join(dirDict['njoyInstall'], 'xnjoy')
     #
-    # TODO: CHANGE nuclideName
     pendfDirr = os.path.join(pendfRootDirr, str(dat.nuclideName))
     aceDirr = os.path.join(aceRootDirr, str(dat.thermalFileName))
     #
@@ -50,7 +49,6 @@ def create_thermal_ace_njoy_script(dat, tapes):
     #
     aceScriptFile = 'runNJOY.sh'
     aceScriptPath = os.path.join(aceDirr, aceScriptFile)
-    # TODO: Generalize to use different extension root (instead of 2)
     aceFileTemplate = '{H}.{e}{s}t'
 
     # Script to run NJOY from PENDF to thermal ACE:
@@ -110,7 +108,6 @@ def create_njoy_script(dat, tapes):
     aceRootDirr = dirDict['ace']
     njoyPath = os.path.join(dirDict['njoyInstall'], 'xnjoy')
     #
-    #TODO: Extend nuclideName to use thermalName
     pendfDirr = os.path.join(pendfRootDirr, str(dat.nuclideName))
     gendfDirr = os.path.join(gendfRootDirr, str(dat.nuclideName))
     aceDirr = os.path.join(aceRootDirr, str(dat.nuclideName))
@@ -150,7 +147,6 @@ def create_njoy_script(dat, tapes):
     #
     aceScriptFile = 'runNJOY.sh'
     aceScriptPath = os.path.join(aceDirr, aceScriptFile)
-    # TODO: Generalize to use different extension root (instead of 9)
     aceFileTemplate = '{Z}{A:03}.{e}{s}c'
     relPathPendfAce = os.path.relpath(pendfPath, aceDirr)
 

@@ -13,8 +13,6 @@ and automatic downloads of the bound-thermal neutron data from BNL.
 A copy of the bound-thermal neutron data from BNL is included locally in case BNL changes its URL's.
 '''
 
-#TODO: Implement automatic downloads of the bound-thermal neutron data from BNL
-
 #MINE
 from directories import get_common_directories, copy_thermal_endf_xs, make_endf_directory
 
