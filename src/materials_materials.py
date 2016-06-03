@@ -1665,7 +1665,7 @@ def print_materials(materials, verbosity=False):
 
 ###############################################################################
 class Material():
-    def __init__(self, shortName=None, longName=None, temperature=None, atomDensity=None, massDensity=None, chordLength=None, abundanceDict=None, elemAtomFracDict=None, elemMassFracDict=None, ZAList=None, ZList=None, symDict=None, backgroundXSDict=None, admixedModeratorDict=None, admixedModeratorList=None, thermalOpt=0, elemWeightDict=None, matlWeight=None, thermalXSDict=None, temperatureIndex=0):
+    def __init__(self, shortName=None, longName=None, temperature=None, atomDensity=None, massDensity=None, chordLength=None, abundanceDict=None, elemAtomFracDict=None, elemMassFracDict=None, ZAList=None, ZList=None, symDict=None, backgroundXSDict=None, thermalOpt=0, elemWeightDict=None, matlWeight=None, SabDict=None, thermalXSDict=None, temperatureIndex=0):
         '''The following units are used:
         temperature in Kelvin is the temperature of the material
         temperatureIndex is the least-significant digit of an MCNP-like matl. name and refers to temperature
@@ -1677,14 +1677,13 @@ class Material():
         elemMassFracDict is the mass/weight fraction of each element in the material
         elemWeightDict is the elemental mass/weight in g/mole calculated using the correct abundances
         matlWeight in g/mole is the effective weight of the material
-        ZAList is a list of all (Z,A) = (atomic number, atomic mass) pairs in the problem
-        ZList is a list of all elements in the problem stored as atomic number
+        ZAList is a list of all (Z,A) = (atomic number, atomic mass) pairs in the material
+        ZList is a list of all elements in the material stored as atomic number
         symDict is the chemical symbol for each element in the material
         backgroundXSDict is an approximate background XS seen by each nuclide in the material
-        admixedModeratorDict is currently not used
-        admixedModeratorList is currently not used
         thermalOpt specifies which thermal treatment to use
-        thermalXSDict is a list of thermal XS used for each element (list of shortName's in endfMTList)
+        SabDict is the thermal S(alpha,beta) Hollerith string used for each nuclide in the material
+        thermalXSDict is a list of thermal XS used for each nuclide (list of shortName's in endfMTList)
         shortName is a succinct name without whitespaces
         longName is a longer name that may contain whitespace
         '''
@@ -1719,6 +1718,7 @@ class Material():
         else:
             raise ValueError('Must set either atomDensity or massDensity')
         #
+        self.set_sab_dict()
         self.set_thermal_xs_dict()
         self.check_internal_keys_consistency()
 
@@ -1731,6 +1731,7 @@ class Material():
 
     def update_thermal_option(self, thermalOpt):
         self.thermalOpt = thermalOpt
+        self.set_sab_dict()
         self.set_thermal_xs_dict()
 
     def update_temperature(self, temperature):
@@ -1804,39 +1805,16 @@ class Material():
             #
             strs = [('abundanceDict', 'atom fraction'), ('elemWeightDict', 'g/mole')]
             for (strr, unit) in strs:
-                print strr, getattr(self, strr), '({0})'.format(unit)
+                print strr, sorted(getattr(self, strr).items()), '({0})'.format(unit)
             #
             strs = ['elemAtomFracDict', 'elemMassFracDict']
             for strr in strs:
-                print strr, getattr(self, strr)
+                print strr, sorted(getattr(self, strr).items())
             #
-            strs = ['thermalXSDict', 'backgroundXSDict']
+            strs = ['SabDict', 'thermalXSDict', 'backgroundXSDict']
             for strr in strs:
-                print strr, getattr(self, strr)
+                print strr, sorted(getattr(self, strr).items())
             #
-        if verbosity:
-            a = getattr(self, 'abundanceDict')
-            e = getattr(self, 'elemAtomFracDict')
-            aD = getattr(self, 'atomDensity')
-            T_Kelvin = getattr(self, 'temperature')
-            T_MeV = 8.6173324E-11 * T_Kelvin
-            iT = getattr(self, 'temperatureIndex')
-            norm = sum([a[(Z,A)]*e[Z] for (Z,A) in a])
-            print 'MCNP-style material input:'
-            print '     atom_density={:.5f}'.format(aD)
-            print '     tmp={:.3e}'.format(T_MeV)
-            for Z,A in sorted(a.keys()):
-                # NB: Some of the abundanceDict's may be unnormalized
-                # because they neglect some of the isotopes
-                atomFrac = a[(Z,A)] * e[Z]
-                print '     {:02}{:03}.{}c    {:.8e}'.format(Z, A, 90+iT, atomFrac)
-            t = getattr(self, 'thermalXSDict')
-            therm2mcnpDict = util.get_thermal_short2mcnp_dict()
-            for vList in t.values():
-                for v in vList:
-                    if v in therm2mcnpDict:
-                        print '     {}.{}t'.format(therm2mcnpDict[v], 20+iT)
-            print '(Warning: x in .9xc and .2xt may not be accurate)'
 
     ################################################################
     def make_lists_sets(self):
@@ -1854,8 +1832,10 @@ class Material():
             raise ValueError('ZList should be the keys for elemMassFracDict')
         if set(self.elemWeightDict.keys()) != self.ZList:
             raise ValueError('ZList should be the keys for elemWeightDict')
-        if set(self.thermalXSDict.keys()) != self.ZList:
-            raise ValueError('ZList should be the keys for thermalXSDict')
+        if set(self.SabDict.keys()) != self.ZAList:
+            raise ValueError('ZAList should be the keys for SabDict')
+        if set(self.thermalXSDict.keys()) != self.ZAList:
+            raise ValueError('ZAList should be the keys for thermalXSDict')
         if set(self.symDict.keys()) != self.ZList:
             raise ValueError('ZList should be the keys for consistent with symDict')
         if set([Z for (Z, A) in self.ZAList]) != self.ZList:
@@ -1939,55 +1919,38 @@ class Material():
         '''Convert from 1/b-cm to g/cm^3. Requires atomDensity and matlWeight be set.'''
         self.massDensity = self.matlWeight * self.atomDensity / util.avogadros_number()
 
-    ################################################################
-    def set_thermal_xs_dict(self):
-        # WARNING: thermalXSDict should be a ZA list, not a Z list, because the thermal
-        # option is often nuclide-specific. See util.get_thermal_mcnp2zaid_dict for
-        # which nuclides should use which thermal treatments
-        # Current cases where this script does not match MCNP:
-        # H-2 and H-3 in 'h2o'
-        # Non Fe-56 isotopes in 'fe'
-        # U-235 (and anything other than U-238) in 'uo2'
-        self.thermalXSDict = {}
+    def set_sab_dict(self):
+        '''Determine what thermal treatment to use for each nuclide in the material.
+        The key is (Z,A) and the value is the element thermal name'''
+        thermalName2ZAs = util.get_thermal_name_to_nuclide_list_dict()
+        ZthermalName2Sab = util.get_thermal_name_to_element_thermal_name_dict()
+        nonBoundSabs = util.get_non_bound_names()
         self.thermalOpt = self.thermalOpt.lower().strip()
-        if self.thermalOpt == 'none':
-            for Z in self.ZList:
-                self.thermalXSDict[Z] = []
+        thermalOpt = self.thermalOpt
+        self.SabDict = {}
+        if thermalOpt == 'free':
+            for (Z,A) in self.ZAList:
+                # Use a free thermal treatment for all nuclides
+                self.SabDict[(Z,A)] = 'free'
+        elif thermalOpt in nonBoundSabs:
+            for (Z,A) in self.ZAList:
+                # Do not use a thermal treatment for any nuclide
+                self.SabDict[(Z,A)] = 'none'
         else:
-            for Z in self.ZList:
-                self.thermalXSDict[Z] = ['free']
-        if self.thermalOpt == 'h2o':
-            for Z in self.ZList:
-                if Z == 1:
-                    self.thermalXSDict[Z] = ['hh2o']
-        elif self.thermalOpt == 'al':
-            for Z in self.ZList:
-                if Z == 13:
-                    self.thermalXSDict[Z] = ['alinel', 'alelas']
-        elif self.thermalOpt == 'fe':
-            for Z in self.ZList:
-                if Z == 26:
-                    # This XS only applies to Fe-56, but here we are using it for all Fe isotopes!
-                    # This XS may only apply to Fe in a BCC configuration, notably not stainless steel
-                    self.thermalXSDict[Z] = ['feinel', 'feelas']
-        elif self.thermalOpt == 'uo2':
-            for Z in self.ZList:
-                if Z == 8:
-                    self.thermalXSDict[Z] = ['ouo2inel', 'ouo2elas']
-                if Z == 92:
-                    # This XS only applies to U-238, but here we are using it for all U isotopes!
-                    # (The UUO2 thermal treatment is very wrong for Pu due to low-lying resonances)
-                    self.thermalXSDict[Z] = ['uuo2inel', 'uuo2elas']
-        elif self.thermalOpt == 'graphite':
-            for Z in self.ZList:
-                if Z == 6:
-                    self.thermalXSDict[Z] = ['graphinel', 'graphelas']
-        elif self.thermalOpt == 'zrh':
-            for Z in self.ZList:
-                if Z == 1:
-                    self.thermalXSDict[Z] = ['hzrhinel', 'hzrhelas']
-                if Z == 40:
-                    self.thermalXSDict[Z] = ['zrzrhinel', 'zrzrhelas']
+            boundZAList = thermalName2ZAs[thermalOpt]
+            for (Z,A) in self.ZAList:
+                if (Z,A) in boundZAList:
+                    # If S(alpha,beta) applies to current nuclide, use it
+                    self.SabDict[(Z,A)] = ZthermalName2Sab[(Z,thermalOpt)]
+                else:
+                    # Otherwise, use a free thermal treatment
+                    self.SabDict[(Z,A)] = 'free'
+
+    def set_thermal_xs_dict(self):
+        '''Determine which thermal cross sections are used by each nuclide in the material.
+        The key is (Z,A) and the value is a list of thermal xs names'''
+        elem2xs = util.get_element_thermal_name_to_thermal_xs_list_dict()
+        self.thermalXSDict = {(Z,A): elem2xs[elem] for (Z,A), elem in self.SabDict.items()}
 
     def check_background_xs_keys_consistency(self):
         if set(self.backgroundXSDict.keys()) != self.ZAList:

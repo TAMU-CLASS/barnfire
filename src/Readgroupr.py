@@ -1065,7 +1065,12 @@ def seek_to_next_entry(fid, currentMf, currentMt):
 
 ####################################################################################
 def get_endf_mt_list():
-    '''Provides a subset of the officially-recognized ENDF MT numbers and their meaning.'''
+    '''Provides a subset of the officially-recognized ENDF MT numbers and their meaning.
+    See Tables 4, 21, and 25 in NJOY 2012 manual for MT numbers and names of thermal XS
+    References:
+    endf6: ENDF-6 Formats Manual, BNL-90365-2009 Rev.2 (Description of the ENDF-6 format)
+    njoy2012: The NJOY Nuclear Data Processing System, Version 2012, LA-UR-12-27079 (NJOY 2012 manual)
+    '''
     endfMTList = []
     # Neutrons
     endfMTList.append((1, 'ntot', 'nP0Total'))

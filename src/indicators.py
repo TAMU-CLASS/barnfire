@@ -29,7 +29,7 @@ from readxs import read_group_file
 from makegroups import write_egrid
 import Readgroupr as readgroupr
 import materials_materials as mat
-from materials_util import calc_chord_length
+from materials_util import calc_chord_length, get_nuclide_dirr
 from materials_global import get_union_parameters
 
 mpl.rcParams.update({'font.size': 16, 'lines.linewidth': 2})
@@ -264,27 +264,38 @@ def compute_infinite_medium_flux(materials, linearTol, maxFluxJump, maxdEJump, e
     #Parse materials
     numMaterials = len(materials)
     globalTDict, globalBXSDict, globalTXSDict = {}, {}, {}
-    globalZAList, globalZList = get_union_parameters(
+    globalZASabList, globalZAList, _ = get_union_parameters(
         materials, globalTDict, globalBXSDict, globalTXSDict, False, verbosity)
 
-    nuclideDirrDict = {}
+    nuclideDirDict = {}
     globalZATList = []
-    for (Z,A) in globalZAList:
-        nuclideName = '{0}-{1}'.format(nd.z2sym[Z].lower(), A)
-        nuclideDirr = nuclideName
-        nuclideDirrDict[(Z,A)] = nuclideDirr
+    # (Z,A,Sab,T) are needed to get PENDF directory and temperature within the PENDF file.
+    globalZASabTList = []
+    for (Z,A,Sab) in globalZASabList:
+        metastableStr = ''
+        if A // 400 > 0:
+            metastableStr = 'm'
+        Atrue = Aref % 400
+        nuclideDirr = get_nuclide_dirr(nd.z2sym[Z], Atrue, Sab, metastableStr)
+        nuclideDirDict[(Z,A,Sab)] = nuclideDirr
         globalZATList.append((Z,A,-1))
+        globalZASabTList.append((Z,A,Sab,-1))
     # Parse temperatures, if desired
     if temperatureDependence:
         globalZATList = []
+        globalZASabTList = []
         # For now, require that each material temperature be on the pendf temperature grid (no interpolations)
         for material in materials:
             T = material.temperature
             for (Z,A) in material.ZAList:
+                Sab = material.SabDict[(Z,A)]
                 globalZATList.append((Z,A,T))
+                globalZASabTList.append((Z,A,Sab,T))
         globalZATList = sorted(globalZATList)
+        globalZASabTList = sorted(globalZASabTList)
         if verbosity:
             print 'globalZATList:', globalZATList
+            print 'globalZASabTList:', globalZASabTList
     else:
         for material in materials:
             material.update_temperature(-1)
@@ -298,19 +309,21 @@ def compute_infinite_medium_flux(materials, linearTol, maxFluxJump, maxdEJump, e
     rootDirr = dirDict['pendf']
     mts = [1, 2] # total xs, elastic scattering
     mtsStr = ' '.join([str(mtStr) for mtStr in mts])
-    for (Z,A,T) in globalZATList:
-        nuclideDirr = nuclideDirrDict[(Z,A)]
+    for (Z,A,Sab,T) in globalZASabTList:
+        nuclideDirr = nuclideDirDict[(Z,A,Sab)]
         desiredT = T
         inDirr = os.path.join(rootDirr, nuclideDirr)
         #
         parser = readgroupr.define_input_parser()
         parseStr = '-i {i} -I {I} -w pen -T {T} -m {m}'.format(i=inDirr, I=filename, T=desiredT, m=mtsStr)
         if verbosity:
-            print 'Looking for ({Z}, {A})... '.format(Z=Z,A=A),
+            print 'Looking for ({Z}, {A}, {Sab})... '.format(Z=Z,A=A,Sab=Sab),
             parseStr += ' -v'
         readerDict = vars(parser.parse_args(parseStr.split()))
         readgroupr.finish_parsing(readerDict)
         xsDict = readgroupr.execute_reader(readerDict)
+        # No bound thermal XS are taken into account in indicators.py.
+        # XS are stored as functions of (Z,A,T) and not Sab.
         energyGridDict[(Z,A,T)] = xsDict['energy']
         totalXSDict[(Z,A,T)] = xsDict[(3,1)]
         scatXSDict[(Z,A,T)] = xsDict[(3,2)]
@@ -390,24 +403,45 @@ def compute_infinite_medium_flux(materials, linearTol, maxFluxJump, maxdEJump, e
 def compute_total_xs(materials, linearTol, maxXSJump, maxdEJump, temperatureDependence=False, plotOutput=False, verbosity=False):
     '''Get total cross sections for each material on desired energy grid'''
 
-    # Parse materials
+    #Parse materials
     numMaterials = len(materials)
     globalTDict, globalBXSDict, globalTXSDict = {}, {}, {}
-    globalZAList, globalZList = get_union_parameters(
+    globalZASabList, globalZAList, _ = get_union_parameters(
         materials, globalTDict, globalBXSDict, globalTXSDict, False, verbosity)
 
-    # For each nuclide, specify location of PENDF file and temperature to seek in that file
-    nuclideDirrDict = {}
+    nuclideDirDict = {}
     globalZATList = []
-    for (Z,A) in globalZAList:
-        nuclideName = '{0}-{1}'.format(nd.z2sym[Z].lower(), A)
-        nuclideDirr = nuclideName
-        nuclideDirrDict[(Z,A)] = nuclideDirr
+    # (Z,A,Sab,T) are needed to get PENDF directory and temperature within the PENDF file.
+    globalZASabTList = []
+    for (Z,A,Sab) in globalZASabList:
+        metastableStr = ''
+        if A // 400 > 0:
+            metastableStr = 'm'
+        Atrue = Aref % 400
+        nuclideDirr = get_nuclide_dirr(nd.z2sym[Z], Atrue, Sab, metastableStr)
+        nuclideDirDict[(Z,A,Sab)] = nuclideDirr
         globalZATList.append((Z,A,-1))
-    # Still need to add ability to get temperature dependence
-    for material in materials:
-        material.update_temperature(-1)
-
+        globalZASabTList.append((Z,A,Sab,-1))
+    # Parse temperatures, if desired
+    if temperatureDependence:
+        globalZATList = []
+        globalZASabTList = []
+        # For now, require that each material temperature be on the pendf temperature grid (no interpolations)
+        for material in materials:
+            T = material.temperature
+            for (Z,A) in material.ZAList:
+                Sab = material.SabDict[(Z,A)]
+                globalZATList.append((Z,A,T))
+                globalZASabTList.append((Z,A,Sab,T))
+        globalZATList = sorted(globalZATList)
+        globalZASabTList = sorted(globalZASabTList)
+        if verbosity:
+            print 'globalZATList:', globalZATList
+            print 'globalZASabTList:', globalZASabTList
+    else:
+        for material in materials:
+            material.update_temperature(-1)
+        
     # Read in pointwise cross sections from their PENDF files at the desired temperatures
     energyGridDict = {}
     totalXSDict = {}
@@ -416,17 +450,21 @@ def compute_total_xs(materials, linearTol, maxXSJump, maxdEJump, temperatureDepe
     rootDirr = dirDict['pendf']
     mts = [1] # total xs
     mtsStr = ' '.join([str(mtStr) for mtStr in mts])
-    for (Z,A,T) in globalZATList:
-        nuclideDirr = nuclideDirrDict[(Z,A)]
+    for (Z,A,Sab,T) in globalZASabTList:
+        nuclideDirr = nuclideDirDict[(Z,A,Sab)]
         desiredT = T
         inDirr = os.path.join(rootDirr, nuclideDirr)
         #
         parser = readgroupr.define_input_parser()
         parseStr = '-i {i} -I {I} -w pen -T {T} -m {m}'.format(i=inDirr, I=filename, T=desiredT, m=mtsStr)
-        parseStr += ' -v'
+        if verbosity:
+            print 'Looking for ({Z}, {A}, {Sab})... '.format(Z=Z,A=A,Sab=Sab),
+            parseStr += ' -v'
         readerDict = vars(parser.parse_args(parseStr.split()))
         readgroupr.finish_parsing(readerDict)
         xsDict = readgroupr.execute_reader(readerDict)
+        # No bound thermal XS are taken into account in indicators.py.
+        # XS are stored as functions of (Z,A,T) and not Sab.
         energyGridDict[(Z,A,T)] = xsDict['energy']
         totalXSDict[(Z,A,T)] = xsDict[(3,1)]
 
@@ -597,15 +635,6 @@ def get_scattering_widths(alphaDict, globalZAList):
         alphaDict[(Z,A)] = alpha
 
 ###############################################################################
-def compute_micro_xs(nuclideIndexDict, unionXSMat, finalEnergyGrid, energyGridDict, xsDict, globalZAList, offset=0):
-    '''Linearly interpolate the microscopic cross sections onto the final energy grid'''
-    numNuclides = len(globalZAList)
-    unionXSMat[offset:(numNuclides + offset), :] = 0
-    for iNuc, (Z,A) in enumerate(globalZAList):
-        nuclideIndexDict[(Z,A)] = iNuc + offset
-        unionXSMat[iNuc + offset, :] = np.interp(
-                finalEnergyGrid, energyGridDict[(Z,A)], xsDict[(Z,A)])
-
 def compute_macro_xs(materialIndexDict, unionXSMat, finalEnergyGrid, energyGridDict, xsDict, materials, globalZATList, offset=0):
 
     # Linearly interpolate the microscopic cross sections onto the final energy grid

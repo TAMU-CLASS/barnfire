@@ -25,6 +25,7 @@ def create_thermal_ace_njoy_script(dat, tapes):
     aceRootDirr = dirDict['ace']
     njoyPath = os.path.join(dirDict['njoyInstall'], 'xnjoy')
     #
+    # TODO: CHANGE nuclideName
     pendfDirr = os.path.join(pendfRootDirr, str(dat.nuclideName))
     aceDirr = os.path.join(aceRootDirr, str(dat.thermalFileName))
     #
@@ -49,7 +50,8 @@ def create_thermal_ace_njoy_script(dat, tapes):
     #
     aceScriptFile = 'runNJOY.sh'
     aceScriptPath = os.path.join(aceDirr, aceScriptFile)
-    aceFileTemplate = '{H}.2{s}t'
+    # TODO: Generalize to use different extension root (instead of 2)
+    aceFileTemplate = '{H}.{e}{s}t'
 
     # Script to run NJOY from PENDF to thermal ACE:
     deck = []
@@ -81,7 +83,7 @@ def create_thermal_ace_njoy_script(dat, tapes):
     aceFiles = []
     for i in range(numTemperatures):
         tapeAceOut, tapeXSDirOut, viewrOut = tapes.aceStart + i, tapes.aceXSDirStart + i, tapes.viewrAceStart + i
-        aceFile = aceFileTemplate.format(H=dat.thermalFileName, s=i)
+        aceFile = aceFileTemplate.format(H=dat.thermalFileName, s=i, e=dat.aceExt)
         aceFiles.append(aceFile)
         aceFileDir = 'xsdir.{}'.format(aceFile)
         plotName = 'p_xs_{}.pdf'.format(aceFile)
@@ -108,6 +110,7 @@ def create_njoy_script(dat, tapes):
     aceRootDirr = dirDict['ace']
     njoyPath = os.path.join(dirDict['njoyInstall'], 'xnjoy')
     #
+    #TODO: Extend nuclideName to use thermalName
     pendfDirr = os.path.join(pendfRootDirr, str(dat.nuclideName))
     gendfDirr = os.path.join(gendfRootDirr, str(dat.nuclideName))
     aceDirr = os.path.join(aceRootDirr, str(dat.nuclideName))
@@ -147,7 +150,8 @@ def create_njoy_script(dat, tapes):
     #
     aceScriptFile = 'runNJOY.sh'
     aceScriptPath = os.path.join(aceDirr, aceScriptFile)
-    aceFileTemplate = '{Z}{A:03}.9{s}c'
+    # TODO: Generalize to use different extension root (instead of 9)
+    aceFileTemplate = '{Z}{A:03}.{e}{s}c'
     relPathPendfAce = os.path.relpath(pendfPath, aceDirr)
 
     # Script to run NJOY from ENDF to PENDF:
@@ -231,7 +235,10 @@ def create_njoy_script(dat, tapes):
     deck.append(["echo 'Running NJOY'"])
     deck.append(["cat>input <<EOF"])
     create_moder_input(deck, dat, tapes.endf, tapes.bendf)
-    create_purr_input(deck, dat, tapes.bendf, pendfOutTape, tapes.purrOut)
+    if dat.usePURR:
+        create_purr_input(deck, dat, tapes.bendf, pendfOutTape, tapes.purrOut)
+    else:
+        create_moder_input(deck, dat, pendfOutTape, tapes.purrOut)
     deck.append(['stop'])
     deck.append(["EOF"])
     deck.append(["./xnjoy<input"])
@@ -249,7 +256,7 @@ def create_njoy_script(dat, tapes):
     aceFiles = []
     for i in range(numTemperatures):
         tapeAceOut, tapeXSDirOut, viewrOut = tapes.aceStart + i, tapes.aceXSDirStart + i, tapes.viewrAceStart + i
-        aceFile = aceFileTemplate.format(A=dat.A, Z=dat.Z, s=i)
+        aceFile = aceFileTemplate.format(A=dat.A, Z=dat.Z, s=i, e=dat.aceExt)
         aceFiles.append(aceFile)
         aceFileDir = 'xsdir.{}'.format(aceFile)
         plotName = 'p_xs_{}.pdf'.format(aceFile)
@@ -411,7 +418,7 @@ def create_acer_input(deck, dat, tapeENDFIn, tapePENDFIn, tapeACEROutStart, tape
     tapeXSDIROut = tapeXSDIROutStart + tapeIndex
     thermStr = '{0:g}'.format(round(dat.thermList[tapeIndex],1))
     # May not match suffix in materials_materials.py
-    suffixNonThermal = '.{}'.format(90+tapeIndex)
+    suffixNonThermal = '.{}{}'.format(dat.aceExt, tapeIndex)
     #
     deck.append(['acer'])
     deck.append((tapeENDFIn, tapePENDFIn, 0, tapeACEROut, tapeXSDIROut))
@@ -428,7 +435,7 @@ def create_thermal_acer_input(deck, dat, tapeENDFIn, tapePENDFIn, tapeACEROutSta
     tapeXSDIROut = tapeXSDIROutStart + tapeIndex
     thermStr = '{0:g}'.format(round(dat.thermList[tapeIndex],1))
     # May not match suffix in materials_materials.py
-    suffixThermal = '.{}'.format(20+tapeIndex)
+    suffixThermal = '.{}{}'.format(dat.aceExt, tapeIndex)
     #
     # A thermal ACE file is done for one thermal material only
     inelasticMT = dat.inelasticMTList[0]
@@ -437,6 +444,7 @@ def create_thermal_acer_input(deck, dat, tapeENDFIn, tapePENDFIn, tapeACEROutSta
     #
     inelasticOpt = get_inelastic_option(inelasticMT)
     elasticOpt = get_elastic_option(inelasticMT)
+    # Thermal ACE is done for one bound thermal treatment only, so use the first item in the list
     matThermal = dat.matThermalList[0]
     numAtom = get_num_atoms_in_molecule(inelasticMT)
     #
@@ -516,10 +524,9 @@ def create_plotr_inputs(deck, dat, tapePLOTRIn, tapesPLOTROut, tapesVIEWROut):
     return names
 
 def create_groupr_input(deck, dat, tapeENDFIn, tapePENDFIn, tapeGroupsIn, tapeGENDFOut):
-    # Create multigroup cross sections
-    # See http://t2.lanl.gov/njoy/in-groupr.html
-
-    # TODO: Add in more general weighting options (iwt=1,-4)
+    '''Create multigroup cross sections
+    See http://t2.lanl.gov/njoy/in-groupr.html'''
+    # Add in more general weighting options (iwt=1,-4)?
 
     # Pre-process groupr input
     # Add currently recognized names to rxts
@@ -729,7 +736,7 @@ def get_temporary_tapes_ace(tapes, pendfOutTape, endfThermalTapeList, numTempera
 
 ###############################################################################
 class NJOYDat():
-    def __init__(self, A=None, Z=None, nuclideName=None, thermalNuclideName=None, thermalFileName=None, endfName=None, endfFile=None, mat=None, thermList=[0], sig0List=[1e10], groupBdrs=None, groupOpt=0, isFissionable=False, includeMF6=True, legendreOrder=0, inelasticMTList=[], thermalMTList=[], matThermalList=[], endfThermalFileList=[]):
+    def __init__(self, A=None, Z=None, nuclideName=None, thermalNuclideName=None, thermalFileName=None, endfName=None, endfFile=None, mat=None, aceExt=None, thermList=[0], sig0List=[1e10], groupBdrs=None, groupOpt=0, isFissionable=False, includeMF6=True, usePURR=True, legendreOrder=0, inelasticMTList=[], thermalMTList=[], matThermalList=[], endfThermalFileList=[]):
         # General
         # Nuclide information
         self.A = A
@@ -780,12 +787,12 @@ class NJOYDat():
         self.legendreOrder = legendreOrder
         #
         # PURR
+        self.usePURR = usePURR 
         self.numProbBins = 20
         self.numLadders = 50
         #
         # ACE
-        #self.suffixNonThermal = '.90' # should be a list
-        #self.suffixThermal = '.20'  # should be a list
+        self.aceExt = aceExt
         self.useNewAngularDist = 1
         # Thermal ACE
         self.numMix = 1 #True except for BeO or C6H6 (Benzene)
@@ -795,7 +802,7 @@ class NJOYDat():
         self.ZAIDs = []
 
 def get_elasticMT(inelasticMT):
-    # From Table 25 in NJOY2012 manual
+    # From Table 25 in NJOY2012 manual (ref: njoy2012 in materials_utilities.py)
     if inelasticMT in [222, 228, 227]:
         return 0
     else:

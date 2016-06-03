@@ -12,6 +12,7 @@ import shutil
 import numpy as np
 #MINE
 from materials_util import is_fissionable
+import materials_util as util
 from directories import get_common_directories
 import Readgroupr as readgroupr
 import PDTXS as pdtxs
@@ -64,12 +65,13 @@ def read_fluxes(fluxBasePath, materials):
 
 def print_one_material(rootDirr, outDirr, material, backgroundXSDict, scatMatrixFormat, useSimpleRxn, rxnsToPrint, energyMesh, fluxDict, verbosity):
     '''Print PDT XS for one material. Prints both the component-wise and combined material xs's. Requires unique shortName for each material to prevent over-writing.'''
+    txs2mtDict = readgroupr.get_short2mt_dict(readgroupr.get_endf_mt_list())
     T = material.temperature
-    ZAList = list(material.ZAList)
-    short2mtDict = readgroupr.get_short2mt_dict(readgroupr.get_endf_mt_list())
+    ZAList = sorted(material.ZAList)
     for (Z,A) in ZAList:
         sig0Vec = backgroundXSDict[(Z,A)]
         numGroups = len(sig0Vec)
+        Sab = material.SabDict[(Z,A)]
         sym = material.symDict[Z]
         shortName = material.shortName
         # Metastable isomeric states use the groundstate A + 400
@@ -77,12 +79,12 @@ def print_one_material(rootDirr, outDirr, material, backgroundXSDict, scatMatrix
         metastableStr = ''
         if A // 400 > 0:
             metastableStr = 'm'
-        leafDirr = '{0}-{1}{2}'.format(sym.lower(), effA, metastableStr)
+        leafDirr = util.get_nuclide_dirr(sym, effA, Sab, metastableStr) 
         inDirr = os.path.join(rootDirr, leafDirr)
         readerOpt = 'gendf'
         outName = 'xs_{0}_{1}-{2}_{3}.data'.format(shortName, sym.lower(), A, numGroups)
         pickleName = None
-        thermalMTList = ['{0}'.format(short2mtDict[name]) for name in material.thermalXSDict[Z]]
+        thermalMTList = ['{0}'.format(txs2mtDict[txs]) for txs in material.thermalXSDict[(Z,A)]]
         thermalMTStr = ' '.join(thermalMTList)
         parser = readgroupr.define_input_parser()
         parseStr = '-i {i} -o {o} -O {O} -P {P} -w {w} -p {p} -t {t} -T {T} -f {f}'.format(
@@ -205,7 +207,7 @@ def iterate_one_material(rootDirr, material, maxError, maxIterations, energyMesh
     sig0Vec = None
     if verbosity:
         print 'Performing Bondarenko iteration for material {0}'.format(material.longName)
-    ZAList = list(material.ZAList)
+    ZAList = sorted(material.ZAList)
     readerOpt = 'gendf'
     totalXSDict = {}
     backgroundXSDict = {}
@@ -238,6 +240,7 @@ def unset_background_xs_dict(material, backgroundXSDict, verbosity):
 def read_one_total_xs(rootDirr, Z, A, material, totalXSDict, readerOpt='gendf', sig0Vec=None, energyMesh=None, fluxDict=None, verbosity=False):
     '''Read the total XS for one nuclide for one material'''
     T = material.temperature
+    Sab = material.SabDict[(Z,A)]
     sym = material.symDict[Z]
     sig0 = material.backgroundXSDict[(Z,A)]
     if sig0 == np.inf:
@@ -247,7 +250,8 @@ def read_one_total_xs(rootDirr, Z, A, material, totalXSDict, readerOpt='gendf', 
     metastableStr = ''
     if A // 400 > 0:
         metastableStr = 'm'
-    leafDirr = '{0}-{1}{2}'.format(sym.lower(), effA, metastableStr)
+    #
+    leafDirr = util.get_nuclide_dirr(sym, effA, Sab, metastableStr) 
     fullDirr = os.path.join(rootDirr, leafDirr)
     parser = readgroupr.define_input_parser()
     parseStr = '-i {i} -o {o} -w {w} -p none -m 1 -M -t -T {T} -Z {Z}'.format(
@@ -276,7 +280,7 @@ def read_one_total_xs(rootDirr, Z, A, material, totalXSDict, readerOpt='gendf', 
 
 def build_all_background_xs(material, totalXSDict, backgroundXSDict, verbosity=False):
     '''Build the background XS for each nuclide in one material.'''
-    ZAList = list(material.ZAList)
+    ZAList = sorted(material.ZAList)
     numGroups = len(totalXSDict[ZAList[0]])
     numNuclides = len(totalXSDict)
     backgroundXSs = np.zeros((numNuclides, numGroups))
