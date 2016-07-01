@@ -275,7 +275,7 @@ def compute_infinite_medium_flux(materials, linearTol, maxFluxJump, maxdEJump, e
         metastableStr = ''
         if A // 400 > 0:
             metastableStr = 'm'
-        Atrue = Aref % 400
+        Atrue = A % 400
         nuclideDirr = get_nuclide_dirr(nd.z2sym[Z], Atrue, Sab, metastableStr)
         nuclideDirDict[(Z,A,Sab)] = nuclideDirr
         globalZATList.append((Z,A,-1))
@@ -417,7 +417,7 @@ def compute_total_xs(materials, linearTol, maxXSJump, maxdEJump, temperatureDepe
         metastableStr = ''
         if A // 400 > 0:
             metastableStr = 'm'
-        Atrue = Aref % 400
+        Atrue = A % 400
         nuclideDirr = get_nuclide_dirr(nd.z2sym[Z], Atrue, Sab, metastableStr)
         nuclideDirDict[(Z,A,Sab)] = nuclideDirr
         globalZATList.append((Z,A,-1))
