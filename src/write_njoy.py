@@ -540,7 +540,7 @@ def create_groupr_input(deck, dat, tapeENDFIn, tapePENDFIn, tapeGroupsIn, tapeGE
         namedRxts.append((6, '/'))
         for mt in dat.thermalMTList:
             namedRxts.append((6,mt,"'(thermal)'",'/'))
-    elif dat.isFissionable:
+    if dat.isFissionable:
         # To get chi, currently need (6,18), so use this even if not including other MF6
         namedRxts.append((6, 18,"'fission'",'/'))
 
@@ -555,7 +555,7 @@ def create_groupr_input(deck, dat, tapeENDFIn, tapePENDFIn, tapeGroupsIn, tapeGE
         toRepeat.append((6,2,"'elastic scat'",'/'))
         for mt in dat.thermalMTList:
             toRepeat.append((6,mt,"'(thermal)'",'/'))
-    elif dat.isFissionable:
+    if dat.isFissionable:
         # To get chi, currently need (6,18), so use this even if not including other MF6
         toRepeat.append((6,18,"'fission'",'/'))
     toRepeat = sorted(toRepeat)
