@@ -14,11 +14,13 @@ import argparse
 import numpy as np
 #MINE
 from directories import get_common_directories
+import materials_materials as mat
 import PDTXS as pdtxs
 
 def do_all(inputDict):
     verbosity = inputDict['verbosity']
     aggregationOpt = inputDict['aggregationopt']
+    microORmacro = inputDict['micromacro']
     materialsList = inputDict['materialslist']
     numGroups = inputDict['groups']
     inDirr = inputDict['inputdir']
@@ -32,6 +34,54 @@ def do_all(inputDict):
         print '-------------------------------'
         for k,v in sorted(inputDict.items()):
             print k, ":", v
+
+    if microORmacro in ['micro', 'both']:
+        mat2funcDict = mat.get_materials_name2function_dict()
+        baseNames = set([name.split('_')[0] for name in materialsList])
+        for baseName in baseNames:
+            temperatureToNameDict = {}
+            ZAList = []
+            xsDict = {}
+            for materialName in [name for name in materialsList if name.split('_')[0] == baseName]:
+                xsDict[materialName] = {}
+                material = mat2funcDict[materialName]()
+                temperature = material.temperature
+                temperatureToNameDict[temperature] = materialName
+                ZAList = material.ZAList
+
+                for (Z,A) in ZAList:
+                    sym = material.symDict[Z]
+                    ZA = sym.lower() + '-' + str(A)
+                    ZA_g =  ZA + '_' + str(numGroups)
+                    filename = inFormat.format(m=materialName, g=ZA_g)
+                    inPath = os.path.join(inDirr, filename)
+                    if verbosity:
+                        print 'Reading {}'.format(inPath)
+                    xsDict[materialName][ZA] = pdtxs.read_PDT_xs_generally(inPath)
+
+            temperatureList = sorted(temperatureToNameDict.keys())
+            numMergedXS = len(temperatureList)
+
+            for (Z,A) in ZAList:
+                # Write header of merged XS
+                sym = mat2funcDict[materialName]().symDict[Z]
+                ZA = sym.lower() + '-' + str(A)
+                mZAname = baseName + '_' + ZA
+                filename = outFormat.format(b=mZAname, g=numGroups, n=numMergedXS)
+                outPath = os.path.join(outDirr, filename)
+                if verbosity:
+                    print 'Writing {}'.format(outPath)
+                cmpXS = xsDict[materialName][ZA]
+                pdtxs.write_PDT_xs_header(outPath, cmpXS, temperatureList)
+                # Write body of merged XS
+                for T in temperatureList:
+                    materialName = temperatureToNameDict[T]
+                    xs = xsDict[materialName][ZA]
+                    pdtxs.write_PDT_xs_body(outPath, xs)
+                    if verbosity > 1:
+                        print '    Adding {} at {}K'.format(materialName + '_' + ZA, T)
+
+
     # Step 1: Aggregate materials
     materialsSetDict = {}
     if aggregationOpt == 'all':
@@ -108,6 +158,7 @@ def define_input_parser():
     # If nothing is specified, verbosity is False. If -v or --verbose is specified, verbosity is 1. If -v N is specified, verbosity is N.
     parser.add_argument('-v', '--verbose', dest='verbosity', nargs='?', const=1, default=0, choices=[0,1,2,3,4], type=int)
     parser.add_argument('-m', '--materialslist', help='List of materials to use (for more advanced options, see materials_materials.py).', nargs='+', default=[])
+    parser.add_argument('-M', '--micromacro', help='Which type of cross section(s) are desired: microscopic, macroscopic, or both?', default='macro', choices=['micro', 'macro', 'both'])
     parser.add_argument('-a', '--aggregationopt', help="Which cross sections to merge. 'auto' means combine all cross sections with the same materialName but different temperatures, assuming materials are named like '{materialName}_{temperatureIndex}. 'all' means combine all cross sections in the materials list into one new cross section.", default='auto', choices=['auto', 'all'])
     parser.add_argument('-g', '--groups', help="Number of groups to use when determining the input name.", type=int, default=0)
     parser.add_argument('-i', '--inputdir', help='Input directory with PDT XS.', default=xsInDirr)

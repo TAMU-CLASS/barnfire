@@ -56,7 +56,7 @@ def get_materials_name2function_dict():
         'cFCHAMBER': get_c5g7_fission_chamber_material,
         'cCR': get_c5g7_control_rod_material,
         # TRIGA (BOL)
-        'tcFUEL': get_triga_fuel_complete_material,
+        'tcFUEL': get_depleted_triga_fuel_material,
         'tFUEL': get_triga_fuel_material,
         'tZIRC': get_triga_zirconium_material,
         'tCLAD': get_triga_clad_material,
@@ -111,6 +111,8 @@ def get_materials_name2function_dict():
         'mtTGRAPHITE_7': get_multi_temperature_triga_graphite_material_T7,
         'mtTGRAPHITE_8': get_multi_temperature_triga_graphite_material_T8,
         'mtTGRAPHITE_9': get_multi_temperature_triga_graphite_material_T9,
+        'mtDTFUEL_0': get_multi_temperature_depleted_triga_fuel_material_T0,
+        'mtDTFUEL_7': get_multi_temperature_depleted_triga_fuel_material_T7,
     }
 
 ###############################################################################
@@ -662,7 +664,7 @@ def get_c5g7_control_rod_material():
     return material
 
 ###############################################################################
-def get_triga_fuel_complete_material():
+def get_depleted_triga_fuel_material():
     shortName = 'tcFUEL'
     longName = 'U-ZrH fuel w complete elems'
     massDensity = 7.03671478387 #g/cc
@@ -670,6 +672,7 @@ def get_triga_fuel_complete_material():
     temperature = 296. #K
     temperatureIndex = 0 # X in .9Xc
     thermalOpt = 'zrh'
+ #   hAtomFractionsDict = {1: 0.999885, 2: 0.000115}
     uAtomFractionsDict = {234: 0.00237412107611, 235: 0.191509644035, 236: 0.00245944064973, 237: 9.38712924854e-08, 238: 0.803656700368, 239: 2.76322744152e-21}
     npAtomFractionsDict = {236: 4.87314780932e-07, 237: 0.98648993846, 238: 1.72038664926e-05, 239: 0.0134923703586}
     puAtomFractionsDict = {236: 1.06773890918e-12, 238: 0.000183915788017, 239: 0.97784115666, 240: 0.0205601536476, 241: 0.00140371098018, 242: 1.10629231985e-05, 243: 4.68515756757e-18}
@@ -721,6 +724,7 @@ def get_triga_fuel_complete_material():
     override_abundances(ZAList, abundanceDict, euAtomFractionsDict, 'Eu', 'Mass')
     override_abundances(ZAList, abundanceDict, gdAtomFractionsDict, 'Gd', 'Mass')
     override_abundances(ZAList, abundanceDict, erAtomFractionsDict, 'Er', 'Mass')
+ #   override_abundances(ZAList, abundanceDict, hAtomFractionsDict, 'H')
     override_abundances_as_elemental(ZAList, abundanceDict,  'C')
     #
     material = Material(
@@ -1410,6 +1414,51 @@ def get_multi_temperature_triga_graphite_material_T9():
     return get_multi_temperature_triga_graphite_material_Ti(9)
     
 ###############################################################################
+def get_multi_temperature_depleted_triga_fuel_material_base():
+    return get_depleted_triga_fuel_material()
+
+def get_multi_temperature_triga_fuel_material_Tgrid():
+    return [296, 400, 500, 600, 700, 800, 1000, 1200] #K
+
+def get_multi_temperature_depleted_triga_fuel_material_Ti(iT):
+    material = get_multi_temperature_depleted_triga_fuel_material_base()
+    Tgrid = get_multi_temperature_triga_fuel_material_Tgrid()
+    T = Tgrid[iT]
+    shortName = 'mtDTFUEL_{}'.format(iT)
+    longName = '{} ({} K)'.format(material.longName, T)
+    material.update_temperature(T)
+    material.update_temperature_index(iT) # X in .9Xc
+    # MASS DENSITY SHOULD BE UPDATED TO ACCOUNT FOR THERMAL EXPANSION
+    #material.update_mass_density(rho)
+    material.update_names(shortName, longName)
+    return material
+
+def get_multi_temperature_depleted_triga_fuel_material_T0():
+    return get_multi_temperature_depleted_triga_fuel_material_Ti(0)
+
+def get_multi_temperature_depleted_triga_fuel_material_T1():
+    return get_multi_temperature_depleted_triga_fuel_material_Ti(1)
+
+def get_multi_temperature_depleted_triga_fuel_material_T2():
+    return get_multi_temperature_depleted_triga_fuel_material_Ti(2)
+
+def get_multi_temperature_depleted_triga_fuel_material_T3():
+    return get_multi_temperature_depleted_triga_fuel_material_Ti(3)
+
+def get_multi_temperature_depleted_triga_fuel_material_T4():
+    return get_multi_temperature_depleted_triga_fuel_material_Ti(4)
+
+def get_multi_temperature_depleted_triga_fuel_material_T5():
+    return get_multi_temperature_depleted_triga_fuel_material_Ti(5)
+
+def get_multi_temperature_depleted_triga_fuel_material_T6():
+    return get_multi_temperature_depleted_triga_fuel_material_Ti(6)
+
+def get_multi_temperature_depleted_triga_fuel_material_T7():
+    return get_multi_temperature_depleted_triga_fuel_material_Ti(7)
+
+###############################################################################
+
 def get_all_isotopes(elemDict):
     symList = elemDict.keys()
     symDict = {}
@@ -1445,7 +1494,7 @@ def get_all_isotopes(elemDict):
             ZAList += get_isotope_ZAs(Z)
     return symDict, ZList, ZAList
 
-def get_isotope_ZAs(Z, cutoff=0.005):
+def get_isotope_ZAs(Z, cutoff=0.00005):
     '''Get all isotopes with natural abundance at least cutoff for element Z.
     nd.isotopes does not return any metastable A's.'''
     ''' Skip isotopes with only metastable isomers'''

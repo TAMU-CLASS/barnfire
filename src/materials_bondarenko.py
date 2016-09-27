@@ -110,11 +110,20 @@ def form_and_print_macroscopic_xs(dirr, ZAList, material, numGroups, verbosity=F
     '''Combine all microscopic component XS into one macroscopic material XS'''
     shortName = material.shortName
     MTinvel = 259
+    MTfission = 18
+    MTnutot = 452
+    MTnudelay = 455
+    MTnuprompt = 456
     MTdecay = 457
     MTfissEnergy = 458
     MTwgt = 1099
     MTchi = 1018
     MTnuSigF = 1452
+    MTdecayConst = 1054
+    MTdelayedChi = 2055
+    MTssNu = 2452
+    MTssChi = 2018
+    MTfissionMatrix = 2518
     # Read in component cross sections
     xsDictIn = {}
     for (Z,A) in ZAList:
@@ -125,8 +134,17 @@ def form_and_print_macroscopic_xs(dirr, ZAList, material, numGroups, verbosity=F
     # Initialize material cross section dictionary (xsOut)
     key = (Z,A)
     t = xsDictIn[key]
+    numDNGs = 0
+    # Find the numDNGs of fissile material
+    for (Z,A) in xsDictIn:
+        t = xsDictIn[(Z,A)]
+        if numDNGs == 0:
+            numDNGs = t.D
+        elif numDNGs != t.D and t.D != 0:
+            assert (numDNGs == t.D), 'Fissile material ({0}-{1}) has different number of delayed neutron groups'.format(Z,A)
+    t.D = numDNGs
     microStr = 'Macroscopic cross sections are in units of cm^-1.'
-    xsDict = pdtxs.PDT_XS(t.G, t.M, t.T, t.typeStr, microStr, t.Eg, t.dE, {})
+    xsDict = pdtxs.PDT_XS(t.G, t.M, t.D, t.T, t.typeStr, microStr, t.Eg, t.dE, {})
     xsOut = xsDict.xs
     # Keep a reaction if it appears in at least one component
     MTs = set()
@@ -140,15 +158,26 @@ def form_and_print_macroscopic_xs(dirr, ZAList, material, numGroups, verbosity=F
     for MT in MTs0D:
         xsOut[MT] = 0.
     # Initialize 1D XS
-    MTs1D = [MT for MT in MTs if (MT < 2000 and MT not in MTs0D)]
+    MTs1D = [MT for MT in MTs if (MT < 2500 and MT not in [MTs0D, MTdecayConst, MTdelayedChi])]
     for MT in MTs1D:
         xsOut[MT] = np.zeros(xsDict.G)
+    # Initialize delayed neutron precurse decay constant (MT 1054)
+    if MTdecayConst in MTs:
+        xsOut[MTdecayConst] = np.zeros(xsDict.D)
+    # Initialize delayed neutron spectra (MT 2055)
+    if MTdelayedChi in MTs:
+        xsOut[MTdelayedChi] = np.zeros((xsDict.D, xsDict.G))
     # Initialize transfer matrices
-    MTsXfer = [MT for MT in MTs if MT >= 2000]
+    MTsXfer = [MT for MT in MTs if MT >= 2500]
     for MT in MTsXfer:
-        xsOut[MT] = np.zeros((xsDict.M, xsDict.G, xsDict.G))
+        if MT == MTfissionMatrix:
+            xsOut[MT] = np.zeros((xsDict.G, xsDict.G))
+        else:
+            xsOut[MT] = np.zeros((xsDict.M, xsDict.G, xsDict.G))
+
     # Save denominators for XS that are averages instead of density-weighted sums
-    MTsAvg = [MT for MT in MTs if MT in [MTwgt, MTchi, MTfissEnergy, MTinvel]]
+    MTsAvg = [MT for MT in MTs if MT in [MTwgt, MTnutot, MTnudelay, MTnuprompt, \
+              MTchi, MTdelayedChi, MTdecayConst, MTfissEnergy, MTinvel, MTssNu, MTssChi]]
     norms = {}
     for MT in MTsAvg:
         norms[MT] = 0.
@@ -169,16 +198,49 @@ def form_and_print_macroscopic_xs(dirr, ZAList, material, numGroups, verbosity=F
             norms[MTwgt] += compDensity
         # Compute fission rate sum for this component
         fissRate = 0.
+        if MTnutot in xsIn:
+            fissRate = np.sum(xsIn[MTnutot] * xsIn[MTfission] * wgt) / wgtSum
+        fissRatePrompt = 0.
         if MTnuSigF in xsIn:
-            fissRate = np.sum(xsIn[MTnuSigF] * wgt) / wgtSum
+            fissRatePrompt = np.sum(xsIn[MTnuSigF] * wgt) / wgtSum
+        fissRateDelayed = 0.
+        if MTnudelay in xsIn:
+            fissRateDelayed = np.sum(xsIn[MTnudelay] * xsIn[MTfission] * wgt) / wgtSum
         # Update numerator and denominator for energy per fission using fission-source weighting
         if MTfissEnergy in xsIn:
             xsOut[MTfissEnergy] += compDensity * fissRate * xsIn[MTfissEnergy]
             norms[MTfissEnergy] += compDensity * fissRate
         # Update numerator and denominator for chi using fission-source weighting
         if MTchi in xsIn:
-            xsOut[MTchi] += compDensity * fissRate * xsIn[MTchi]
-            norms[MTchi] += compDensity * fissRate
+            xsOut[MTchi] += compDensity * fissRatePrompt * xsIn[MTchi]
+            norms[MTchi] += compDensity * fissRatePrompt
+        # Update numerator and denominator for delayed chi using fission-source weighting
+        if MTdelayedChi in xsIn:
+            xsOut[MTdelayedChi] += compDensity * fissRateDelayed * xsIn[MTdelayedChi]
+            norms[MTdelayedChi] += compDensity * fissRateDelayed
+        # Delayed neutron decay constant should be consistant for all nuclides
+        if MTdecayConst in xsIn:
+            xsOut[MTdecayConst] += 1.0 * xsIn[MTdecayConst]
+            norms[MTdecayConst] += 1.0
+         # Update numerator and denominator for steady-state chi using fission-source weighting
+        if MTssChi in xsIn:
+            xsOut[MTssChi] += compDensity * fissRate * xsIn[MTssChi]
+            norms[MTssChi] += compDensity * fissRate
+
+        # Update neutrons per fission (nutot, nuprompt, nudelay, and nu_ss)
+        if MTnutot in xsIn:
+            xsOut[MTnutot] += compDensity * xsIn[MTfission] * xsIn[MTnutot]
+            norms[MTnutot] += compDensity * xsIn[MTfission]
+        if MTnudelay in xsIn:
+            xsOut[MTnudelay] += compDensity * xsIn[MTfission] * xsIn[MTnudelay]
+            norms[MTnudelay] += compDensity * xsIn[MTfission]
+        if MTnuprompt in xsIn:
+            xsOut[MTnuprompt] += compDensity * xsIn[MTfission] * xsIn[MTnuprompt]
+            norms[MTnuprompt] += compDensity * xsIn[MTfission]
+        if MTssNu in xsIn:
+            xsOut[MTssNu] += compDensity * xsIn[MTfission] * xsIn[MTssNu]
+            norms[MTssNu] += compDensity * xsIn[MTfission]
+
         # Update numerator and denominator for inverse velocity using density weighting
         if MTinvel in xsIn:
             xsOut[MTinvel] += compDensity * xsIn[MTinvel]
@@ -192,15 +254,34 @@ def form_and_print_macroscopic_xs(dirr, ZAList, material, numGroups, verbosity=F
 
     # Normalize XS averages
     for MT in MTsAvg:
-        if norms[MT]:
+        if np.all(norms[MT]>0.0):
             xsOut[MT] /= norms[MT]
+
+    # Recompute steady-state nu and chi
+    flux = xsOut[MTwgt]
+    promptProd = xsOut[MTnuSigF]
+    fission_xs = xsOut[MTfission]
+    nu_delayed = xsOut[MTnudelay]
+    chis_delayed = xsOut[MTdelayedChi]
+    chi_delayed = np.sum(chis_delayed, axis=0)
+    fission_x_prompt = xsOut[MTfissionMatrix]
+
+    nu_prompt = promptProd/fission_xs
+    nu_ss = nu_prompt + nu_delayed
+    n_per_gout = ( np.dot(fission_x_prompt, flux) + \
+                   chi_delayed*np.sum(nu_delayed*fission_xs*flux) )
+    chi_ss = n_per_gout/np.sum(n_per_gout)
+
+    xsOut[MTssNu] = nu_ss
+    xsOut[MTssChi] = chi_ss
 
     # Print out material XS
     outName = 'xs_{0}_{1}.data'.format(shortName, numGroups)
     outPath = os.path.join(dirr, outName)
-    pdtxs.write_PDT_xs_generally(outPath, xsDict)
     if verbosity:
         print 'Printing combined XS to {0}'.format(outPath)
+    pdtxs.write_PDT_xs_generally(outPath, xsDict)
+    
 
 def iterate_one_material(rootDirr, material, maxError, maxIterations, energyMesh=None, fluxDict=None, verbosity=False):
     '''Perform Bondarenko iteration on one material. Fine groups within an energy element share the same background cross section.'''

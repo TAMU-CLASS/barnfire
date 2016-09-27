@@ -44,6 +44,7 @@ def execute_reader(inputDict):
         picklePath = os.path.join(outDirr, pickleName)
     #
     mtsForMF3 = inputDict['mf3list']
+    mtsForMF5 = inputDict['mf5list']
     mtsForMF6 = inputDict['mf6list']
     #thermalMTs = [241, 242]
     #thermalMTs = [221]
@@ -70,7 +71,7 @@ def execute_reader(inputDict):
     workOpt = inputDict['workopt']
     outputDict = {}
     if workOpt == 'gendf':
-        xsData = read_xs(filePathIn, mtsForMF3, mtsForMF6, verbosity)
+        xsData = read_xs(filePathIn, mtsForMF3, mtsForMF5, mtsForMF6, verbosity)
         if picklePath is not None:
             pickle_xs(xsData, picklePath)
         if doCondensation:
@@ -110,13 +111,13 @@ def execute_reader(inputDict):
     return outputDict
 
 ####################################################################################
-def read_xs(filePath, desiredMTsForMF3, desiredMTsForMF6, verbosity):
+def read_xs(filePath, desiredMTsForMF3, desiredMTsForMF5, desiredMTsForMF6, verbosity):
     '''Read desired xs and transfer matrices from GROUPR file with handle fid'''
     data = {}
     # Loop through entire file once to figure out temperatures and reactions
     mfmtsAvail, numGroups, numLegMoments, thermList, numSig0 = get_reaction_list(filePath, verbosity)
     # Keep intersection of what you desire and what is available
-    mfmtsKeep = determine_rxns_to_keep(desiredMTsForMF3, desiredMTsForMF6, mfmtsAvail, verbosity)
+    mfmtsKeep = determine_rxns_to_keep(desiredMTsForMF3, desiredMTsForMF5, desiredMTsForMF6, mfmtsAvail, verbosity)
     # Initialize data structure, which houses everything.
     populate_data_dict(data, mfmtsKeep, numGroups, numLegMoments, thermList, numSig0)
     # Go through file and store reactions in mfmtsKeep
@@ -125,7 +126,7 @@ def read_xs(filePath, desiredMTsForMF3, desiredMTsForMF6, verbosity):
         line = get_next_line(fid)
         while line != '':
             mf, mt, lineNum = get_mf_mt_lineNum(line)
-            if not(is_continue(mf, mt, lineNum)):
+            if not (is_continue(mf, mt, lineNum)):
                 # Read header
                 xsDict = {}
                 read_xs_header(line, xsDict)
@@ -144,10 +145,16 @@ def read_xs(filePath, desiredMTsForMF3, desiredMTsForMF6, verbosity):
                     merge_data_xs_vector(data, xsDict)
                     line = get_next_line(fid)
                 elif (mf, mt) == (6, 18):
-                    # Read fission transfer matrices, which are special
-                    read_fission_matrix_body(fid, xsDict, verbosity)
-                    merge_data_fission_matrix(data, xsDict)
+                    # Read prompt fission transfer matrices, which are special
+                    read_prompt_fission_matrix_body(fid, xsDict, verbosity)
+                    merge_data_prompt_fission_matrix(data, xsDict)
                     line = get_next_line(fid)
+                elif (mf, mt) == (5, 455):
+                    # Read delayed fission chi, nu, lambda (decay constant)
+                    read_delayed_fission_spectrum(fid, xsDict, verbosity)
+                    merge_data_delayed_fission_xs(data, xsDict)
+                    line = get_next_line(fid)
+                    key = 2055
                 elif mf == 6:
                     # Read non-fission matrix
                     read_xs_matrix_body(fid, xsDict, verbosity)
@@ -188,6 +195,9 @@ def populate_data_dict(data, mfmtsSet, numGroups, numLegMoments, thermList, numS
         if mf == 3:
             rxn['xs'] = np.zeros((actualNumTherm, actualNumSig0, numGroups))
             rxn['numLegMoments'] = 1
+        elif mf == 5 and mt == 455:
+            rxn['numLegMoments'] = 6  # Assuming 6 delayed neutron groups
+            rxn['numDNGs'] = 6
         elif mf == 6 and mt == 18:
             rxn['numLegMoments'] = 1
         elif mf == 6:
@@ -229,6 +239,7 @@ def unify_scattering_sparsity_patterns(data):
     '''For each reaction, take a union over temperature of the sparsity patterns, because they may be different. Copy the xs into this global sparse format. This will allow for easy interpolation between temperatures later.'''
     #
     numGroups = data['numGroups']
+    identityForMin = numGroups
     mfmtList = [(mf,mt) for (mf,mt) in data['mfmts'] if (mf == 6 and mt != 18)]
     for (mf,mt) in mfmtList:
         rxnDict = data['rxn'][(mf,mt)]
@@ -237,11 +248,15 @@ def unify_scattering_sparsity_patterns(data):
         numLegMoments = rxnDict['numLegMoments']
         #
         rowStartMat = rxnDict['rowStartMat']
-        sentinelVal = np.max(rowStartMat) + 1
-        rowStartMat[rowStartMat == -1] = sentinelVal
+        rowStartMat[rowStartMat == -1] = identityForMin
         minRowStart = np.min(rowStartMat, axis=0)
-        minRowStart[minRowStart == sentinelVal] = -1
-        maxColSize = np.max(rxnDict['colSizeMat'], axis=0)
+        rowEndMat = rowStartMat + rxnDict['colSizeMat']   
+        maxRowEnd = np.max(rowEndMat, axis=0)             
+        maxColSize = maxRowEnd - minRowStart             
+
+        minRowStart, maxColSize = remove_sparse_holes(minRowStart, maxColSize)
+        minRowStart[minRowStart == identityForMin] = -1
+
         unionIndexPtr = np.zeros(numGroups + 1, dtype=np.int)
         unionIndexPtr[1:] = np.cumsum(maxColSize)
         xsSize = unionIndexPtr[-1]
@@ -320,18 +335,34 @@ def merge_data_xs_matrix(data, xsDict):
     # Copy colSize to rxnDict and flip ordering
     rxnDict['colSizeMat'][thermIndex, :] = xsDict['colSize'][::-1]
 
-def merge_data_fission_matrix(data, xsDict):
+def merge_data_prompt_fission_matrix(data, xsDict):
     '''Merge xsDict into data. Overwrite fission spectrum, fission matrix, and group where matrix starts'''
     mf,mt = xsDict['mf'], xsDict['mt']
     rxnDict = data['rxn'][(mf,mt)]
     numGroups = data['numGroups']
     #The data is copied, not aliased
+    rxnDict['flux'] = xsDict['flux'][::-1].copy()
     rxnDict['lowEnergySpectrum'] = xsDict['lowEnergySpectrum'][::-1].copy()
+    rxnDict['lowEnergyProd'] = xsDict['lowEnergyProd'][::-1].copy()
     rxnDict['highEnergyMatrix'] = xsDict['highEnergyMatrix'][::-1,::-1].copy()
     rxnDict['highestHighEnergyGroup'] = numGroups - xsDict['lowestHighEnergyGroup'] - 1
+    rxnDict['promptChi'] = xsDict['promptChi'][::-1].copy()
+    rxnDict['promptProd'] = xsDict['promptProd'][::-1].copy()
+    rxnDict['FissionMatrix'] = xsDict['FissionMatrix'][::-1, ::-1].copy()
     #lowEnergySpectrum is indexed by (groupTo)
     #highEnergyMatrix is indexed by (groupFrom, groupTo)
     #highEnergyMatrix applies to groups 0 through highestHighEnergyGroup (inclusive)
+
+def merge_data_delayed_fission_xs(data, xsDict):
+    '''Merge xsDict into data. Overwrite delayed fission chi, nu, and decay constant'''
+    mf,mt = xsDict['mf'], xsDict['mt']
+    rxnDict = data['rxn'][(mf,mt)]
+    numGroups = data['numGroups']
+    numLegMoments = data['numLegMoments']
+    #The data is copied, not aliased
+    rxnDict['decayConst'] = xsDict['decayConst']
+    rxnDict['delayedChi'] = xsDict['delayedChi'][:,::-1].copy()
+    rxnDict['numDNGs'] = xsDict['numDNGs']  # For mt 455 numLegMoments is numDelayedNeutronGroups
 
 ####################################################################################
 def read_group_bdr_header(line, paramDict):
@@ -439,9 +470,10 @@ def read_xs_matrix_body(fid, xsDict, verbosity=0):
         #xsForOneGroup, pos, line = get_list(pos, line, fid, numEntries, get_float)
         xsForOneGroup, pos, line = get_float_list(pos, line, fid, numEntries)
         # Once the thermal data is done, GENDF skips to a null record for the highest group, which we skip
-        if (groupIndex-1) != (lastGroupFrom+1):
-            line = get_next_line(fid)
-            break
+        if mt in range(221, 250): # if mt is thermal process
+            if (groupIndex-1) != (lastGroupFrom+1):
+                line = get_next_line(fid)
+                break
         lastGroupFrom += 1
         colSize[groupIndex-1] = numSecondaryPos - 1
         rowStart[groupIndex-1] = indexLowestGroup - 1
@@ -456,7 +488,8 @@ def read_xs_matrix_body(fid, xsDict, verbosity=0):
     bodyDict = {'xs': xs, 'colSize': colSize, 'rowStart': rowStart, 'firstRow': firstGroupFrom, 'lastRow': lastGroupFrom, 'temperature': temperature}
     xsDict.update(bodyDict)
 
-def read_fission_matrix_body(fid, xsDict, verbosity=0):
+
+def read_prompt_fission_matrix_body(fid, xsDict, verbosity=0):
     '''Reads in a LIST record. Advances fid. Writes xs to xsDict. No temperature or sigma0 dependence is expected for the fission spectrum.'''
     numLegMoments = xsDict['numLegMoments']
     numSig0 = xsDict['numSig0']
@@ -466,6 +499,7 @@ def read_fission_matrix_body(fid, xsDict, verbosity=0):
     pdtMT = 1018
     if verbosity > 1:
         print 'Reading  MF {0}, MT {1:3g} and storing in PDT-MT {2:4g}'.format(mf, mt, pdtMT)
+    flux = np.zeros(numGroups)
     lowEnergySpectrum = np.zeros(numGroups)
     line = get_next_line(fid)
     temperature = get_float(line, 1)
@@ -480,20 +514,30 @@ def read_fission_matrix_body(fid, xsDict, verbosity=0):
         xsForOneGroup, pos, line = get_float_list(pos, line, fid, numEntries)
         strt, end = (indexLowestGroup - 1), (indexLowestGroup - 1) + numSecondaryPos
         lowEnergySpectrum[strt:end] = xsForOneGroup
-        # Skip piece 2: Low-energy neutron production cross section
-        line = get_next_line(fid)
+        # Read piece 2: Low-energy neutron production cross section
+        line = get_next_line(fid)  #read CONT card for first prod section
         indexLowestGroup = get_int(line, 4)
+        numEntries = get_int(line, 5)
         indexIncidentGroup = get_int(line, 6)
+        lowEnergyProd = np.zeros(0)
         while not(indexLowestGroup) and not(indexIncidentGroup == numGroups):
-            line = get_next_line(fid)
-            line = get_next_line(fid)
+            pos = 0
+            #read data in this prod section
+            xsForOneGroup, pos, line = get_float_list(pos, line, fid, numEntries)
+            flux[indexIncidentGroup - 1] = xsForOneGroup[0]
+            lowEnergyProd = np.append(lowEnergyProd, xsForOneGroup[1])  #2nd entry is nuSig_f
+            line = get_next_line(fid)  #read CONT card for consecutive prod section
             indexLowestGroup = get_int(line, 4)
+            numEntries = get_int(line, 5)
             indexIncidentGroup = get_int(line, 6)
         hasHighEnergyPiece = True
         if not(indexLowestGroup) and (indexIncidentGroup == numGroups):
             hasHighEnergyPiece = False
-            for i in range(2):
-                line = get_next_line(fid)
+            pos = 0
+            #read data in this prod section
+            xsForOneGroup, pos, line = get_float_list(pos, line, fid, numEntries)
+            lowEnergyProd = np.append(lowEnergyProd, xsForOneGroup[1])  #2nd entry is nuSig_f
+            line = get_next_line(fid)  # skip blank line at the end of this section
     else:
         hasHighEnergyPiece = True
     # Read piece 3: High-energy transfer matrix (may not exist)
@@ -513,13 +557,66 @@ def read_fission_matrix_body(fid, xsDict, verbosity=0):
             xsForOneGroup, pos, line = get_float_list(pos, line, fid, numEntries)
             strt, end = (indexLowestGroup - 1), (indexLowestGroup - 1) + (numSecondaryPos - 1)
             rowIndex = groupIndex - lowestHighEnergyGroup - 1
+            flux[groupIndex - 1] = xsForOneGroup[0]
             highEnergyMatrix[rowIndex, strt:end] = xsForOneGroup[1:]
             line = get_next_line(fid)
     else:
         lowestHighEnergyGroup = numGroups
         highEnergyMatrix = np.zeros((0, numGroups))
-    bodyDict = {'lowEnergySpectrum': lowEnergySpectrum, 'lowestHighEnergyGroup': lowestHighEnergyGroup, 'highEnergyMatrix': highEnergyMatrix, 'temperature': temperature}
+    assert len(lowEnergyProd) + numHighEnergyGroups == numGroups
+    assert len(lowEnergyProd) == lowestHighEnergyGroup
+
+    # Reconstruct full prompt fission matrix (F)
+    FissionMatrix = np.zeros((numGroups, numGroups))
+    FissionMatrix[0:lowestHighEnergyGroup, :] = np.outer(lowEnergyProd, lowEnergySpectrum)
+    FissionMatrix[lowestHighEnergyGroup:numGroups, :] = highEnergyMatrix
+    # Compute total fission source = F'*phi
+    F_phi = np.dot(flux, FissionMatrix)
+    # prompt Chi is normalized total fission source
+    promptChi = F_phi/np.sum(F_phi)
+    # prompt nu*sig_f (Prod) is row sum of F
+    promptProd = np.sum(FissionMatrix, 1)
+
+    bodyDict = {'flux': flux, 'lowEnergySpectrum': lowEnergySpectrum, 'lowEnergyProd': lowEnergyProd, \
+                'lowestHighEnergyGroup': lowestHighEnergyGroup, 'highEnergyMatrix': highEnergyMatrix, \
+                'FissionMatrix': FissionMatrix, 'promptChi': promptChi, 'promptProd': promptProd, \
+                'temperature': temperature}
+
     xsDict.update(bodyDict)
+
+
+def read_delayed_fission_spectrum(fid, xsDict, verbosity=0):
+    '''Reads in a LIST record. Advances fid. Writes xs to xsDict. No temperature or sigma0 dependence is expected for the fission spectrum.'''
+    numDNGs = xsDict['numLegMoments']  # number of delayed neutron groups
+    numSig0 = xsDict['numSig0']
+    assert numSig0 == 1               # delayed Chi does not have sigma0 depencence
+    numGroups = xsDict['numGroups']
+    mf = xsDict['mf']
+    mt = xsDict['mt']
+    pdtMT = 2055
+    if verbosity > 1:
+        print 'Reading  MF {0}, MT {1:3g} and storing in PDT-MT {2:4g}'.format(mf, mt, pdtMT)
+    nu = np.zeros(numGroups)
+    line = get_next_line(fid)
+    temperature = get_float(line, 1)
+    numSecondaryPos = get_int(line, 3)
+    numSecondaryGroups = numSecondaryPos - 1  # First position is for decay constant
+    indexLowestGroup = get_int(line, 4) - 1
+    numEntries = get_int(line, 5)
+    groupIndex = get_int(line, 6)
+    decayConst = np.zeros(numDNGs)
+    delayedChi = np.zeros((numDNGs, numGroups))
+    pos = 0
+    xsForOneGroup, pos, line = get_float_list(pos, line, fid, numEntries)
+    xsStrt, xsEnd =  0, numDNGs
+    decayConst =  xsForOneGroup[xsStrt:xsEnd]
+    xsStrt, xsEnd = numDNGs, numDNGs * (numSecondaryGroups + 1)
+    chiStrt, chiEnd = indexLowestGroup, indexLowestGroup + numSecondaryGroups
+    delayedChi[:, chiStrt:chiEnd] = np.reshape(np.asarray(xsForOneGroup[xsStrt:xsEnd]), (numDNGs, numSecondaryGroups), order='F')
+    bodyDict = {'decayConst': decayConst, 'delayedChi': delayedChi, 'numDNGs': numDNGs, 'temperature': temperature}
+    line = get_next_line(fid)
+    xsDict.update(bodyDict)
+
 
 ####################################################################################
 def get_pointwise_xs(filePathIn, mtsForMF3, desiredT, outputDict, verbosity):
@@ -856,8 +953,10 @@ def get_scattering_sizes(filePath, verbosity=False):
 
 def get_reaction_list(filePath, verbosity):
     '''Get all the reactions in the file.'''
+    print filePath
     with open(filePath, 'r') as fid:
         line = get_next_line(fid)
+        print line
         mf, mt, lineNum = get_mf_mt_lineNum(line)
         startList = []
         mfList = []
@@ -891,7 +990,7 @@ def get_reaction_list(filePath, verbosity):
         if verbosity:
             print 'File contains the following reactions'
             print '{0:4s} {1:2s} {2:26s} {3} {4} {5}'.format('MF', 'MT', 'Name', 'numLeg', 'numSig0', 'T(K)')
-        pdtMTList, combineTransferList, validMTsForMF3, validMTsForMF6 = get_mt_lists()
+        pdtMTList, combineTransferList, validMTsForMF3, validMTsForMF5, validMTsForMF6 = get_mt_lists()
         mt2long = get_mt2long_dict(pdtMTList)
         for mf, mt, numLeg, numSig0, T in zip(mfList, mtList, numLegList, numSig0List, thermList):
             if mf == 3 or mf == 6:
@@ -902,11 +1001,16 @@ def get_reaction_list(filePath, verbosity):
                     name = 'unknown'
             elif mf == 1 and mt == 451:
                 name = 'energyBounds'
+            elif mf == 5 and mt == 455:
+                try:
+                    name = mt2long[2055]
+                except KeyError:
+                    name = 'unknown'
             else:
                 name = ''
             if verbosity:
                 print '{0:2g} {1:4g} {2:30s} {3:2g} {4:2g} {5:8.1f}'.format(mf, mt, name, numLeg, numSig0, T)
-        uniqueMFMTs = set([ (mf, mt) for mf,mt in zip(mfList, mtList) if mf in (3,6) ])
+        uniqueMFMTs = set([ (mf, mt) for mf,mt in zip(mfList, mtList) if mf in (3,5,6) ])
         uniqueTemperatures = sorted(set(thermList))
         numLegMoments = 1
         numLegMomentsList = [numLeg for mf, numLeg in zip(mfList, numLegList) if mf == 6]
@@ -951,23 +1055,23 @@ def get_float_list(pos, line, fid, listLength):
     return newList, endPos, line
 
 def njoy_to_float(strr):
-    try:
-        return float(strr[0:9] + 'e' + strr[9:11])
-    except ValueError:
-        # TODO: FIX!!! (Recover from this error instead of passing it along; interpolate?)
-        if strr == '   -inf+***':
+    # try:
+    #     return float(strr[0:9] + 'e' + strr[9:11])
+    # except ValueError:
+    #     # TODO: FIX!!! (Recover from this error instead of passing it along; interpolate?)
+    if strr == '   -inf+***':
+        return 0.0
+    if strr == '    NaN+***':
+        return 0.0
+    if not(strr.strip()):
             return 0.0
-        if strr == '    NaN+***':
-            return 0.0
-        if not(strr.strip()):
-                return 0.0
-        numStrr = strr[0]
-        for char in strr[1:]:
-            if char == '+' or char == '-':
-                numStrr += 'e'
-            numStrr += char
-        num = float(numStrr)
-        return num
+    numStrr = strr[0]
+    for char in strr[1:]:
+        if char == '+' or char == '-':
+            numStrr += 'e'
+        numStrr += char
+    num = float(numStrr)
+    return num
 
 def get_float(line, loc=1):
     strr = get_str(line, loc)
@@ -1124,6 +1228,8 @@ def get_endf_mt_list():
     endfMTList.append((246, 'feelas', 'FeThermalElastic'))
     #
     endfMTList.append((259, 'invel', 'inverseVelocity'))
+    endfMTList.append((301, 'etot', 'energyReleaseTot'))
+    endfMTList.append((318, 'efission', 'energyReleaseFission'))
     endfMTList.append((452, 'nutot', 'totalNu'))
     endfMTList.append((455, 'nudelay', 'delayedNu'))
     endfMTList.append((456, 'nuprompt', 'promptNu'))
@@ -1188,6 +1294,7 @@ def get_pdt_mt_list(endfMTList, neutronTransferList, gammaTransferList):
     pdtMTList.append((1099, 'nwgt', 'nP0Spectrum'))
     pdtMTList.append((1018, 'chi', 'nFissionSpectrum'))
     pdtMTList.append((1452, 'nufission', 'nNuFission'))
+    pdtMTList.append((2055, 'chid', 'nDelayedFissionSpectrum'))
     pdtMTList.append((2501, 'allxfer', 'combinedNonFissionTransfer'))
     #Append valid neutron xfer matrices
     for endfMT in endfMTList:
@@ -1208,14 +1315,18 @@ def get_pdt_mt_list(endfMTList, neutronTransferList, gammaTransferList):
 def get_valid_mts_lists(pdtMTList, neutronTransferList, gammaTransferList):
     '''Determine the valid MT numbers for MF 3 and MF 6'''
     validMTsForMF3 = []
+    validMTsForMF5 = []
     for pdtMT in pdtMTList:
         mt, shortName, longName = pdtMT
         if mt < 1000:
             validMTsForMF3.append(mt)
+        if mt == 2055:  #special case for delayedChi
+            validMTsForMF5.append(455)
     validMTsForMF6 = np.concatenate((neutronTransferList, gammaTransferList))
     validMTsForMF3 = sorted(validMTsForMF3)
+    validMTsForMF5 = sorted(validMTsForMF5)
     validMTsForMF6 = sorted(validMTsForMF6)
-    return validMTsForMF3, validMTsForMF6
+    return validMTsForMF3, validMTsForMF5, validMTsForMF6
 
 def get_mt_lists():
     '''Return which MT lists'''
@@ -1224,14 +1335,14 @@ def get_mt_lists():
     gammaTransferList = get_gamma_transfer_list()
     combineTransferList = get_mts_for_combining()
     pdtMTList = get_pdt_mt_list(endfMTList, neutronTransferList, gammaTransferList)
-    validMTsForMF3, validMTsForMF6 = get_valid_mts_lists(pdtMTList, neutronTransferList, gammaTransferList)
-    return pdtMTList, combineTransferList, validMTsForMF3, validMTsForMF6
+    validMTsForMF3, validMTsForMF5, validMTsForMF6 = get_valid_mts_lists(pdtMTList, neutronTransferList, gammaTransferList)
+    return pdtMTList, combineTransferList, validMTsForMF3, validMTsForMF5, validMTsForMF6
 
 ####################################################################################
 def lookup_num_sig0(maxNumSig0, mf, mt):
     '''Look up the number of background xs the reaction contains (either maxNumSig0 or 1).'''
     if mf == 3:
-        mtsAtMultSig0 = [1, 2, 18, 102]
+        mtsAtMultSig0 = [1, 2, 18, 102, 301, 318]
         if mt in mtsAtMultSig0:
             return maxNumSig0
         else:
@@ -1263,37 +1374,44 @@ def lookup_num_therm(maxNumTherm, mf, mt):
     else:
         return 1
 
-def determine_rxns_to_keep(desiredMTsForMF3, desiredMTsForMF6, mfmtsAvail, verbosity):
+def determine_rxns_to_keep(desiredMTsForMF3, desiredMTsForMF5, desiredMTsForMF6, mfmtsAvail, verbosity):
     '''Determine which reactions in the GENDF file to read in and store'''
     #
     mfmtsDesired = []
     for mt in desiredMTsForMF3:
         mfmtsDesired.append((3, mt))
+    for mt in desiredMTsForMF5:
+        mfmtsDesired.append((5, mt))
     for mt in desiredMTsForMF6:
         mfmtsDesired.append((6, mt))
     mfmtsDesired = set(mfmtsDesired)
     #
     mfmtsValid = []
-    pdtMTList, combineTransferList, validMTsForMF3, validMTsForMF6 = get_mt_lists()
+    pdtMTList, combineTransferList, validMTsForMF3, validMTsForMF5, validMTsForMF6 = get_mt_lists()
     for mt in validMTsForMF3:
         mfmtsValid.append((3, mt))
+    for mt in validMTsForMF5:
+        mfmtsValid.append((5, mt))
     for mt in validMTsForMF6:
         mfmtsValid.append((6, mt))
     mfmtsValid = set(mfmtsValid)
     #
-    availMTsForMF3 = [(mf,mt) for mf,mt in mfmtsAvail if mf == 3]
+    availMTsForMF3 = [(mf, mt) for mf,mt in mfmtsAvail if mf == 3]
+    availMTsForMF5 = [(mf, mt) for mf,mt in mfmtsAvail if mf == 5]
     availMTsForMF6 = [(mf, mt) for mf,mt in mfmtsAvail if mf == 6]
     #
     mfmtsKeep = list(mfmtsAvail & mfmtsDesired & mfmtsValid)
     if (3, 0) in mfmtsDesired:
         mfmtsKeep += list(set(availMTsForMF3) & mfmtsValid)
+    if (5, 0) in mfmtsDesired:
+        mfmtsKeep += list(set(availMTsForMF5) & mfmtsValid)
     if (6, 0) in mfmtsDesired:
         mfmtsKeep += list(set(availMTsForMF6) & mfmtsValid)
     mfmtsKeep = set(mfmtsKeep)
     mfmtsKeepSorted = list(sorted(mfmtsKeep))
     #
     if verbosity >=2:
-        print_mts(pdtMTList, combineTransferList, validMTsForMF3, validMTsForMF6)
+        print_mts(pdtMTList, combineTransferList, validMTsForMF3, validMTsForMF5, validMTsForMF6)
     if verbosity:
         mt2long = get_mt2long_dict(pdtMTList)
         names = [mt2long[get_pdt_mt(mf, mt)] for mf,mt in mfmtsKeepSorted]
@@ -1332,7 +1450,7 @@ def get_pdt_mt(mf, mt):
         return 2500 + mt
 
 ####################################################################################
-def print_mts(pdtMTList, combineTransferList, validMTsForMF3, validMTsForMF6):
+def print_mts(pdtMTList, combineTransferList, validMTsForMF3, validMTsForMF5, validMTsForMF6):
     print 'PDT rxns'
     for pdtMT in pdtMTList:
         print pdtMT
@@ -1340,6 +1458,8 @@ def print_mts(pdtMTList, combineTransferList, validMTsForMF3, validMTsForMF6):
     print combineTransferList
     print 'Valid ENDF MT numbers for MF 3'
     print validMTsForMF3
+    print 'Valid ENDF MT numbers for MF 5'
+    print validMTsForMF5
     print 'Valid ENDF MT numbers for MF 6'
     print validMTsForMF6
 
@@ -1461,6 +1581,7 @@ def condense_xs(xsDataIn, energyMesh, flux, verbosity):
     firstLargeGroupLoc = np.where(np.in1d(energyMesh, largeElements))[0][0]
     lastLargeGroupLoc = np.where(np.in1d(energyMesh, largeElements))[0][-1]
     # The element locations are determined to be consistent with the group locations
+    # The element locations correspond to indices in meshElements list
     firstLargeElementLoc = firstLargeGroupLoc
     lastLargeElementLoc = numElements - (numGroups - lastLargeGroupLoc)
     #
@@ -1518,6 +1639,8 @@ def condense_xs(xsDataIn, energyMesh, flux, verbosity):
         rxn = xsData['rxn'][(mf,mt)]
         rxnIn = xsDataIn['rxn'][(mf,mt)]
         keysToCopy = ['numTherm', 'numSig0', 'numLegMoments']
+        if (mf,mt) == (5,455):  # if delayed fission spectrum, numLegMoments is replaced by numDNGs
+            keysToCopy = ['numTherm', 'numSig0', 'numDNGs']
         for key in keysToCopy:
             rxn[key] = rxnIn[key]
     #
@@ -1537,6 +1660,21 @@ def condense_xs(xsDataIn, energyMesh, flux, verbosity):
                 wgt = flux[iTherm, iSig0, :] * xsIn[iTherm, iSig0, :]
                 norm = elementFlux[iTherm, iSig0, :]
                 xs[iTherm, iSig0, :] = np.bincount(energyMesh, weights=wgt) / norm
+    #            
+    # >>> Condense the cross sections for MF 5 MT 455 (delayed neutron spectrum) <<<
+    # Assuming insensitive to thermal and sig0 index
+    mfmtList = [(mf,mt) for (mf,mt) in xsDataIn['mfmts'] if (mf == 5 and mt == 455)]
+    for (mf,mt) in mfmtList:
+        rxn = xsData['rxn'][(mf,mt)]
+        numThermRxn = rxn['numTherm']
+        numSig0Rxn = rxn['numSig0']
+        numDNGs = rxn['numDNGs']
+        delayedChiIn = xsDataIn['rxn'][(mf,mt)]['delayedChi']
+        # for iDNG in range(numDNGs):
+        #     wgt = xsIn[iDNG, :]
+        #     delayedChi[iDNG, :] = np.bincount(energyMesh, weights=wgt)
+        rxn['delayedChi'] = np.apply_along_axis(condenseFunc, 1, delayedChiIn)
+        rxn['decayConst'] = xsDataIn['rxn'][(mf,mt)]['decayConst']
     #
     # >>> Condense the cross sections for MF 6 (all but fission) <<<
     # The scalar flux is used to weight all Legendre moments.
@@ -1633,7 +1771,32 @@ def condense_xs(xsDataIn, energyMesh, flux, verbosity):
             lowEnergySpectrum /= norm
         rxn['lowEnergySpectrum'] = lowEnergySpectrum
         #
-        # Second, we determine which elements are high-energy elements, if any
+        # Second, we condense prompt fission spectrum by column to an intermediate form (e <- g').
+        promptChiIn = rxnIn['promptChi']
+        promptChi = np.apply_along_axis(condenseFunc, 0, promptChiIn)
+        norm = np.sum(promptChi)
+        if norm:
+            promptChi /= norm
+        rxn['promptChi'] = promptChi
+        #
+        # Third, we condense prompt fission nu*sig_f (nu) using flux as weighting
+        promptProdIn = rxnIn['promptProd']
+        iTherm, iSig0 = 0, 0  # The 0th temperature and sig0 index is used for the weighting flux
+        wgt = flux[iTherm, iSig0, :] * promptProdIn
+        norm = elementFlux[iTherm, iSig0, :]
+        rxn['promptProd'] = np.bincount(energyMesh, weights=wgt) / norm
+        #
+        # Fourth, we condense the full FissionMatrix
+        FissionMatrix = rxnIn['FissionMatrix']
+          # condense prompt fission matrix by column to an intermediate form (e <- g').
+        FissionMatrixIntermediate = np.apply_along_axis(condenseFunc, 1, FissionMatrix)
+        iTherm, iSig0 = 0, 0  # The 0th temperature and sig0 index is used for the weighting flux
+        wgt = np.dot(np.diag(flux[iTherm, iSig0, :]), FissionMatrixIntermediate[:,:])
+        norm = elementFlux[iTherm, iSig0, :]
+          # final condense for e <- e' (to element, from element).
+        rxn['FissionMatrix'] = np.dot(np.diag(1./norm), np.apply_along_axis(condenseFunc, 0, wgt))
+        #
+        # Fifth, we determine which elements are high-energy elements, if any
         lastHighGroup = rxnIn['highestHighEnergyGroup']
         if lastHighGroup == -1:
             # The high-energy portion does not exist.
@@ -1698,9 +1861,17 @@ def remove_sparse_holes(holeyRowStart, holeyColSize):
         colStart[strt:end] = np.minimum(groupFrom, colStart[strt:end])
         colEnd[strt:end] = np.maximum(groupFrom, colEnd[strt:end])
     for groupTo in range(numGroups):
+        if colStart[groupTo] == numGroups and colEnd[groupTo] == 0:
+            colStart[groupTo] = numGroups
+            colEnd[groupTo] = numGroups - 1
+    for groupTo in range(numGroups):
         strt, end = colStart[groupTo], colEnd[groupTo] + 1
         fullRowStart[strt:end] = np.minimum(groupTo, fullRowStart[strt:end])
         fullRowEnd[strt:end] = np.maximum(groupTo, fullRowEnd[strt:end])
+    for groupFrom in range(numGroups):
+        if fullRowStart[groupFrom] == numGroups and fullRowEnd[groupFrom] == 0:
+            fullRowStart[groupFrom] = numGroups
+            fullRowEnd[groupFrom] = numGroups - 1
     fullColSize = fullRowEnd - fullRowStart + 1
     return fullRowStart, fullColSize
 
@@ -1712,6 +1883,7 @@ def combine_transfer_matrix(data, thermalMTList, thermalMultList=[], verbosity=F
     identityForMin = numGroups
     maxColSize = np.zeros(numGroups, dtype=np.int)
     minRowStart = identityForMin * np.ones(numGroups, dtype=np.int)
+    maxRowEnd = np.zeros(numGroups, dtype=np.int)     #new
     mfmtList = [(mf,mt) for (mf,mt) in sorted(data['mfmts'], reverse=True) if (mf == 6 and mt != 18 and mt < 221)]
     mfmtFullList = mfmtList + thermalMFMTList
     if not mfmtFullList:
@@ -1727,9 +1899,12 @@ def combine_transfer_matrix(data, thermalMTList, thermalMultList=[], verbosity=F
         rxnDict = data['rxn'][(mf,mt)]
         localRowStart = rxnDict['rowStart']
         localColSize = np.diff(rxnDict['indexPtr'])
+        localRowEnd = localRowStart + localColSize 
         mask = (localRowStart != -1)
         minRowStart[mask] = np.minimum(minRowStart[mask], localRowStart[mask])
-        maxColSize = np.maximum(maxColSize, localColSize)
+        maxRowEnd = np.maximum(maxRowEnd, localRowEnd)
+        maxColSize = np.maximum(maxColSize, maxRowEnd - minRowStart)
+
     # Fill in what would be holes if viewed from CSR perspective
     minRowStart, maxColSize = remove_sparse_holes(minRowStart, maxColSize)
     minRowStart[minRowStart == identityForMin] = -1
@@ -1840,6 +2015,11 @@ def interpolate_T_sig0_xs(data, desiredT, desiredSig0Vec, outputDict, verbosity=
             localNumSig0 = rxn['numSig0']
             if localNumTherm == 1 and localNumSig0 == 1:
                 rxn['xsOut'] = rxn['xs'][0,0,:]
+            elif localNumTherm == 1:
+                for sig0Index in range(numSig0):
+                    mask = sig0FractionMat[sig0Index, :] > 0
+                    rxn['xsOut'][mask] += (sig0FractionMat[sig0Index, mask] * 
+                        rxn['xs'][0, sig0Index, mask])
             elif localNumSig0 == 1:
                 for thermFrac, thermIndex in zip(thermFractions, thermIndices):
                     rxn['xsOut'] += thermFrac * rxn['xs'][thermIndex, 0, :]
@@ -1855,6 +2035,7 @@ def interpolate_T_sig0_xs(data, desiredT, desiredSig0Vec, outputDict, verbosity=
             # Take a flux-weighted sum over all groups
             # Assumes you have (MF,MT) (3,18) (n,fission) and (3,452) (total nubar)
             flux = data['fluxOut']
+
             fissionXS = data['rxn'][(3,18)]['xsOut']
             nuBar = data['rxn'][(3,452)]['xsOut']
             cutoffGroup = rxn['highestHighEnergyGroup']
@@ -1867,6 +2048,15 @@ def interpolate_T_sig0_xs(data, desiredT, desiredSig0Vec, outputDict, verbosity=
                 effectiveSpectrum += highEnergyMatrix[groupFrom, :] * flux[groupFrom]
             effectiveSpectrum /= np.sum(effectiveSpectrum)
             rxn['xsOut'] = effectiveSpectrum
+
+            FissionMatrix = rxn['FissionMatrix']
+            # Compute total fission source = F'*phi
+            F_phi = np.dot(flux, FissionMatrix)
+            # prompt Chi is normalized total fission source
+            rxn['promptChi'] = F_phi/np.sum(F_phi)
+            # prompt nu*sig_f (Prod) is row sum of F
+            rxn['promptProd'] = np.sum(FissionMatrix, 1)
+
         elif mf == 6:
             #Convert internal CSC-like format to CSR format for PDT XS
             numVals = len(rxn['xs'][0,0,0,:])
@@ -1891,6 +2081,29 @@ def interpolate_T_sig0_xs(data, desiredT, desiredSig0Vec, outputDict, verbosity=
                                 strt, end = indptr[fromGroup], indptr[fromGroup + 1]
                                 interpXS[:, strt:end] += (thermFrac * sig0Frac *
                                     rxn['xs'][thermIndex, sig0Index, :, strt:end])
+    if (6, 18) in mfmts and (5, 455) in mfmts:
+        # steady-state fission nu and chi is not stored in mfmts
+        data['rxn'][(3, 2452)] = {}
+        data['rxn'][(3, 2018)] = {}
+        
+        flux = data['fluxOut']
+        fission_xs = data['rxn'][(3 ,18)]['xsOut']
+        fission_x_prompt = data['rxn'][(6, 18)]['FissionMatrix']
+        promptProd = data['rxn'][(6, 18)]['promptProd']
+        nu_prompt = promptProd/fission_xs
+        nu_delayed = data['rxn'][(3 ,455)]['xsOut']
+        chis_delayed = data['rxn'][(5 ,455)]['delayedChi']
+        chi_delayed = np.sum(chis_delayed, axis=0)
+
+        nu_ss = nu_prompt + nu_delayed
+        n_per_gout = ( np.dot(flux, fission_x_prompt) + \
+                   chi_delayed*np.sum(nu_delayed*fission_xs*flux) )
+        chi_ss = n_per_gout/np.sum(n_per_gout)
+
+        data['rxn'][(3, 2452)]['xsOut'] = nu_ss
+        data['rxn'][(3, 2018)]['xsOut'] = chi_ss
+
+
 
 def convert_to_scipy_sparse_scat_matrix(data, format='csr'):
     '''Convert from my internal CSC-like sparse format to an official Scipy format (either CSR or CSC). We have filled in holes so the conversion will be dense on each row.'''
@@ -1902,19 +2115,49 @@ def convert_to_scipy_sparse_scat_matrix(data, format='csr'):
         rowStart = rxn['rowStart']
         indptr = rxn['indexPtr']
         rowsPerCol = np.diff(indptr)
-        numVals = len(rxn['xsOut'][0,:])
-        indices = np.zeros(numVals, dtype=np.int)
+
+        rowStart[rowStart == -1] = numGroups
+        rowStart_holess = numGroups*np.ones(len(rowStart))
+        rowsPerCol_holess = np.zeros(len(rowsPerCol), dtype=np.int)
+        rowStart_holess, rowsPerCol_holess = remove_sparse_holes(rowStart, rowsPerCol)
+        rowStart_holess[rowStart_holess == numGroups] = -1
+        rowStart[rowStart == numGroups] = -1
+
+        indptr_holess = np.zeros(numGroups+1, dtype=np.int)
+        indptr_holess[1:] = np.cumsum(rowsPerCol_holess)
+        # for i in range(len(indptr)):
+        #     assert indptr[i] == indptr_holess[i], "indptr[{0}]={1}, indptr_holess[{0}]={2}".format(i, indptr[i], indptr_holess[i])
+
+        # numVals = len(rxn['xsOut'][0,:])
+        numVals = indptr_holess[-1]
+        vals_holess = np.zeros((numLegMoments, numVals))
+        indices_holess = np.zeros(numVals, dtype=np.int)
         for col in range(numGroups):
-            indices[indptr[col]:indptr[col+1]] = np.arange(rowsPerCol[col]) + rowStart[col]
-        xs = []
+            assert (indptr_holess[col+1] - indptr_holess[col]) == rowsPerCol_holess[col]
+            indices_holess[indptr_holess[col]:indptr_holess[col+1]] = np.arange(rowsPerCol_holess[col]) + rowStart_holess[col]
+        for i in range(len(indices_holess)):
+            assert indices_holess[i] >= -1 and indices_holess[i] < numGroups, "indices_holess[{0}] = {1}".format(i, indices_holess[i])
+
+
         for moment in range(numLegMoments):
             vals = rxn['xsOut'][moment, :]
+            for fromGroup in range(numGroups):
+                Strt, End = indptr[fromGroup], indptr[fromGroup + 1]
+                holessStrt = indptr_holess[fromGroup] + (rowStart[fromGroup] - rowStart_holess[fromGroup])
+                holessEnd = holessStrt + rowsPerCol[fromGroup]
+                vals_holess[moment, holessStrt:holessEnd] = vals[Strt:End]
+
+
+
+        xs = []
+        for moment in range(numLegMoments):
+#            vals = rxn['xsOut'][moment, :]
             if format.lower().strip() == 'csc':
                 xs.append(sparse.csc_matrix(
-                    (vals, indices, indptr), shape=(numGroups, numGroups)))
+                    (vals_holess[moment, :], indices_holess, indptr_holess), shape=(numGroups, numGroups)))
             elif format.lower().strip() == 'csr':
                 xs.append(sparse.csc_matrix(
-                    (vals, indices, indptr), shape=(numGroups, numGroups)).tocsr())
+                    (vals_holess[moment, :], indices_holess, indptr_holess), shape=(numGroups, numGroups)).tocsr())
         rxn['xsOut'] = xs
 
 def write_pdt_xs(filePath, data, temperature, format='csr', whichXS='all', fromFile='barnfire'):
@@ -1932,25 +2175,36 @@ def write_pdt_xs(filePath, data, temperature, format='csr', whichXS='all', fromF
         # The flux counts as a cross section
         numXS += 1
         if (6,18) in mfmts:
-            # Add in a cross section the fission spectrum, instead of storing it as a matrix
-            numXS += 1
-            numXfer -= 1
-        if ((3,18) in mfmts) and ((3,452) in mfmts):
-            # Add in a cross section for nu * sigma_f if both components are present
-            numXS += 1
+            # Add in cross sections for prompt fission spectrum, prod. Fission matrix is store as MT 2518
+            numXS += 2
+        if (5,455) in mfmts:
+            # Add decayConst and delayedChi for delay fission neutrons
+            # Both are regarded as 1D xs (MF 3)
+            numXS += 2
+        if (6,18) in mfmts and (5,455) in mfmts:
+            # If has both prompt and delayed neutron information, compute and add steady-state nu and chi
+            numXS += 2
     elif whichXS.lower().strip() in 'total':
         #Include flux and total XS
         numXS = 2
         numXfer = 0
     else:
-        # Include flux, total XS, and combined scattering matrix by default
+        # Include flux, total XS, and combined scattering matrix by default. Fission matrix no included
         numXS = 2
         numXfer = 0
         if (6,1) in mfmts:
             numXfer += 1
         if (6,18) in mfmts:
+            numXS += 2
+        if (3,18) in mfmts:
+            # add MT 18
             numXS += 1
-        if (3,18) in mfmts and (3,452) in mfmts:
+        if (5,455) in mfmts:
+            # Add decayConst and delayedChi for delay fission neutrons
+            # Both are regarded as 1D xs (MF 3)
+            numXS += 2
+        if (6,18) in mfmts and (5,455) in mfmts:
+            # If has both prompt and delayed neutron information, compute and add steady-state nu and chi
             numXS += 2
         if whichXS.lower().strip() in 'invel' and (3,259) in mfmts:
             # Include the inverse velocity XS, if available
@@ -2036,15 +2290,58 @@ def write_pdt_xs(filePath, data, temperature, format='csr', whichXS='all', fromF
             fid.write(multiline_string(xs, 20, 5, 12))
         # Write fission spectrum and nu * sig_f
         if (6,18) in mfmts:
+            # write effective prompt fission spectrum (Chi)
             pdtMT = 1018
-            xs = data['rxn'][(6,18)]['xsOut']
+              #  xs = data['rxn'][(6,18)]['xsOut']
+            xs = data['rxn'][(6,18)]['promptChi']
             fid.write('MT {0}\n'.format(pdtMT))
             fid.write(multiline_string(xs, 20, 5, 12))
-        if (3,18) in mfmts and (3,452) in mfmts:
+            # write effective prompt fission nu*sif_f (Prod)
             pdtMT = 1452
-            xs = data['rxn'][(3,18)]['xsOut'] * data['rxn'][(3,452)]['xsOut']
+              # xs = data['rxn'][(3,18)]['xsOut'] * data['rxn'][(3,452)]['xsOut']
+            xs = data['rxn'][(6,18)]['promptProd']
             fid.write('MT {0}\n'.format(pdtMT))
             fid.write(multiline_string(xs, 20, 5, 12))
+            # write total fission transfer matrix (chi dot nusigf)
+            pdtMT = 2518
+            xs = data['rxn'][(6,18)]['FissionMatrix']
+            fid.write('MT {0}, Moment {1}\n'.format(pdtMT, 0))
+            for g in range(numGroups):
+                fid.write('{0}, first, last: '.format('  Sink'))
+                first = 0
+                last = numGroups - 1
+                vec = [g, first, last]
+                fid.write(multiline_string(vec, 5, 3, 10))
+                fid.write(multiline_string(xs[:, g], 20, 5, 12))
+        # if (3,18) in mfmts and (3,452) in mfmts:
+        #     pdtMT = 1452
+        #     xs = data['rxn'][(3,18)]['xsOut'] * data['rxn'][(3,452)]['xsOut']
+        #     fid.write('MT {0}\n'.format(pdtMT))
+        #     fid.write(multiline_string(xs, 20, 5, 12))
+        if (5,455) in mfmts:
+            pdtMT = 1054
+            numDNGs = data['rxn'][(5,455)]['numDNGs']
+            decayConst = data['rxn'][(5,455)]['decayConst']
+            fid.write('MT {0}\n'.format(pdtMT))
+            fid.write('  Number of delayed neutron groups: {0}\n'.format(numDNGs))
+            fid.write(multiline_string(decayConst, 20, 5, 12))
+            pdtMT = 2055
+            delayedChi = data['rxn'][(5,455)]['delayedChi']
+            fid.write('MT {0}\n'.format(pdtMT))
+            fid.write('  Number of delayed neutron groups: {0}\n'.format(numDNGs))
+            for iDNG in range(numDNGs):
+                fid.write('  DNG {0}\n'.format(iDNG))
+                fid.write(multiline_string(delayedChi[iDNG,:], 20, 5, 12))
+        # Write steady-state nu and chi
+        if (6, 18) in mfmts and (5, 455) in mfmts:
+            pdtMT = 2452
+            fid.write('MT {0}\n'.format(pdtMT))
+            nu_ss = data['rxn'][(3,2452)]['xsOut']
+            fid.write(multiline_string(nu_ss, 20, 5, 12))
+            pdtMT = 2018
+            fid.write('MT {0}\n'.format(pdtMT))
+            chi_ss = data['rxn'][(3,2018)]['xsOut']
+            fid.write(multiline_string(chi_ss, 20, 5, 12))
         # Write transfer matrices (sparse matrices)
         if whichXS.lower().strip() in 'all':
             mtsForMF6 = [mt for (mf,mt) in sorted(mfmts) if (mf == 6 and mt != 18 and mt != 1)]
@@ -2073,6 +2370,11 @@ def write_pdt_xs(filePath, data, temperature, format='csr', whichXS='all', fromF
                     else:
                         first = indices[strt]
                         last = indices[end-1]
+                        for i in range(strt+1,end):
+                            index_prev = indices[i-1]
+                            index = indices[i]
+                            assert (index - index_prev) == 1, "index i-1: {0},  index i: {1}".format(index_prev, index)
+                        assert (last - first + 1) == len(xs[strt:end]), "indices len {0} <--> data len {1}".format((last - first + 1), len(xs[strt:end]))
                         vec = [g, first, last]
                         fid.write(multiline_string(vec, 5, 3, 10))
                         fid.write(multiline_string(xs[strt:end], 20, 5, 12))
@@ -2143,6 +2445,7 @@ def define_input_parser():
     parser.add_argument('-P', '--picklename', help="Name for output/input pickle. Do not print if 'none'.", default='xs.p')
     parser.add_argument('-O', '--outname', help='Name for output PDT XS.', default='pdt_xs.data')
     parser.add_argument('-m', '--mf3list', help='List of MTs to keep for MF 3. MT of 0 means keep all available. Use ENDF numbering.', nargs='*', type=int, default=[0])
+    parser.add_argument('-n', '--mf5list', help='List of MTs to keep for MF 5. MT of 0 means keep all available. Use ENDF numbering.', nargs='*', type=int, default=[0])
     parser.add_argument('-M', '--mf6list', help='List of MTs to keep for MF 6. MT of 0 means keep all available. Use ENDF numbering.', nargs='*', type=int, default=[0])
     parser.add_argument('-t', '--thermallist', help='List of thermal MTs to keep. Use unofficial ENDF numbering.', type=int, nargs='*', default=[])
     parser.add_argument('-f', '--format', help='Output format for scattering matrices column or row major).', choices=['csr', 'csc'], default='csr')

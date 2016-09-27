@@ -45,6 +45,8 @@ def read_PDT_xs_generally(filePath):
         temperature = float(t[0])
         for i in range(5):
             fid.readline()
+        # Initialize number of delayed neutron groups as 0
+        numDNGs = 0
 
         # >>>>>> GROUP BOUNDARIES <<<<<<
         # From now on, must deal with fixed-length rows (5 entries per row)
@@ -71,17 +73,48 @@ def read_PDT_xs_generally(filePath):
                 read1D += 1
                 t = fid.readline().split()
                 xsDict[MT] = float(t[0])
-            elif MT < 2000:
+            elif MT == 1054:
+                # Read delay neutron decay constant. 1D value, size = numDNGs
+                read1D += 1
+                line = fid.readline().split()
+                numDNGs = int(line[5])
+                xsDict[MT] = np.zeros(numDNGs)
+                read_fixed_line(xsDict[MT], numDNGs, entriesPerLine, fid)
+            elif MT == 2055:
+                # Read delay neutron spectra. numDNGs 1D value's
+                read1D += 1
+                line = fid.readline().split()
+                numDNGs = int(line[5])
+                xsDict[MT] = np.zeros((numDNGs, numGroups))
+                for iDNGs in range(numDNGs):
+                    line = fid.readline().split()
+                    assert iDNGs == int(line[1])
+                    sliceChi = xsDict[MT][iDNGs, :]
+                    read_fixed_line(sliceChi, numGroups, entriesPerLine, fid)
+            elif MT < 2500:
                 # Read a 1D cross section
                 read1D += 1
                 xsDict[MT] = np.zeros(numGroups)
                 read_fixed_line(xsDict[MT], numGroups, entriesPerLine, fid)
+            elif MT == 2518:
+                # Read total fission matrix which only has 0-th moment
+                readXfer += 1
+                xsDict[MT] = np.zeros((numGroups, numGroups))
+                fissionXfer = xsDict[MT]
+                for g2 in range(numGroups):
+                    t = fid.readline().split()
+                    sink, first, last = int(t[3]), int(t[4]), int(t[5])
+                    if last < first:
+                        fid.readline()
+                    else:
+                        sliceFission = fissionXfer[sink, first:last+1]
+                        read_fixed_line(sliceFission, last-first+1, entriesPerLine, fid)
             else:
                 # Read a 3D transfer matrix
                 readXfer += 1
                 xsDict[MT] = np.zeros((numMoments, numGroups, numGroups))
                 # Index scatXfer by [moment, group to, group from]. Uses aliasing
-                scatXfer = xsDict[MT]
+                scatXfer = xsDict[MT]                
                 for m in range(numMoments):
                     for g2 in range(numGroups):
                         t = fid.readline().split()
@@ -94,7 +127,7 @@ def read_PDT_xs_generally(filePath):
                             read_fixed_line(sliceScat, last-first+1, entriesPerLine, fid)
                     if m < (numMoments-1):
                         fid.readline()
-    return PDT_XS(numGroups, numMoments, temperature, xsType, xsUnits, groupBdrs, groupWidths, xsDict)
+    return PDT_XS(numGroups, numMoments, numDNGs, temperature, xsType, xsUnits, groupBdrs, groupWidths, xsDict)
 
 def write_PDT_xs_generally(filePath, xsDat, fromStr='barnfire'):
     temperatureList = [xsDat.T]
@@ -154,6 +187,7 @@ def write_PDT_xs_body(filePath, xsDat):
     # Get XS meta-information
     timeStr = datetime.strftime(datetime.now(), '%c')
     numGroups = xsDat.G
+    numDNGs = xsDat.D
     numMoments = xsDat.M
     temperature = xsDat.T
 
@@ -162,7 +196,10 @@ def write_PDT_xs_body(filePath, xsDat):
 
     # Print all reactions in xsDat, but print the weight first, if it's included
     mtWgt = 1099
-    oneDMTOrder = sorted([key for key in xsDat.xs.keys() if (key != mtWgt and key < 2500)])
+    mtDecayConst = 1054
+    mtDelayedChi = 2055
+    mtFissionMatrix = 2518
+    oneDMTOrder = sorted([key for key in xsDat.xs.keys() if (key not in [mtWgt, mtDecayConst, mtDelayedChi] and key < 2500)])
     xferMTOrder = sorted([key for key in xsDat.xs.keys() if key >= 2500])
     if mtWgt in xsDat.xs.keys():
         oneDMTOrder.insert(0, 1099)
@@ -182,7 +219,37 @@ def write_PDT_xs_body(filePath, xsDat):
                 vectorAlias = np.array([vectorAlias])
                 print vectorAlias
             fid.write(multiline_string(vectorAlias, 20, 5, 12))
-        for MT in xferMTOrder:
+
+        # write decay constants for delayed neutron groups
+        if mtDecayConst in xsDat.xs.keys():
+            MT = mtDecayConst
+            fid.write('MT {0}\n'.format(MT))
+            vectorAlias = xsDat.xs[MT]
+            fid.write('  Number of delayed neutron groups: {0}\n'.format(numDNGs))
+            fid.write(multiline_string(vectorAlias, 20, 5, 12))
+        # write delayed neutron spectra
+        if mtDelayedChi in xsDat.xs.keys():
+            MT = mtDelayedChi
+            fid.write('MT {0}\n'.format(MT))
+            vectorAlias = xsDat.xs[MT]
+            fid.write('  Number of delayed neutron groups: {0}\n'.format(numDNGs))
+            for iDNG in range(numDNGs):
+                    fid.write('  DNG {0}\n'.format(iDNG))
+                    fid.write(multiline_string(vectorAlias[iDNG,:], 20, 5, 12))
+        # write fission matrix
+        if mtFissionMatrix in xferMTOrder:
+            MT = mtFissionMatrix
+            fissionMatrix = xsDat.xs[MT]
+            fid.write('MT {0}, Moment {1}\n'.format(MT, 0))
+            for g in range(numGroups):
+                fid.write('  Sink, first, last: ')
+                first = 0
+                last = numGroups - 1
+                vec = [g, first, last]
+                fid.write(multiline_string(vec, 5, 3, 10))
+                fid.write(multiline_string(fissionMatrix[:, g], 20, 5, 12))
+        # write transfer matrices except for fission matrix
+        for MT in [MT for MT in xferMTOrder if MT != mtFissionMatrix]:
             scatMatrix = xsDat.xs[MT]
             for m in range(numMoments):
                 fid.write('MT {0}, Moment {1}\n'.format(MT, m))
@@ -220,7 +287,9 @@ def read_fixed_line(obj, objSize, numPerLine, fid):
             loc += 1
     if lastLineSize > 0:
         t = fid.readline().split()
+#        print t
         for i in range(lastLineSize):
+#            print i, t[i]
             obj[loc] = t[i]
             loc += 1
 
@@ -234,9 +303,10 @@ def multiline_string(vector, spacing, numberPerLine, decimals):
 
 #########################################################################################
 class PDT_XS():
-    def __init__(self, numGroups, numMoments, temperature, typeStr, microStr, groupBdrs, groupWidths, xsDict):
+    def __init__(self, numGroups, numMoments,  numDNGs, temperature, typeStr, microStr, groupBdrs, groupWidths, xsDict):
         self.G = numGroups
         self.M = numMoments
+        self.D = numDNGs
         self.T = temperature
         self.typeStr = typeStr
         self.microStr = microStr
@@ -246,7 +316,7 @@ class PDT_XS():
 
     def print_stats(self):
         print 'numGroups numMoments temperature type(MG/MB) type(micro/macro)'
-        print self.G, self.M, self.T, self.typeStr.lower(), self.microStr.lower().split()[0]
+        print self.G, self.M, self.D, self.T, self.typeStr.lower(), self.microStr.lower().split()[0]
         print 'MT list'
         print sorted(self.xs.keys())
 
@@ -322,8 +392,10 @@ def print_PDT_MT_enum():
   MT_nubar              , // MT =  452,   total nubar, average # n0 per fission
   MT_chi                , // MT = 1018,   total fission spectrum
 
+  MT_lambda_del         , // MT = 1054,   decay constants of delayed neutron precursor
   MT_nubar_del          , // MT =  455,   nubar, delayed neutrons
   MT_chi_del            , // MT = 1055,   delayed neutron spectrum
+  MT_chis_del           , // MT = 2055,   delayed neutron spectra for all delayed neutron groups
   MT_nubar_prompt       , // MT =  456,   nubar, prompt neutrons
   MT_chi_prompt         , // MT = 1056,   prompt neutron spectrum
 

@@ -214,6 +214,8 @@ def read_energy_and_indicators(dataDict):
         importanceDict = {'kRMFUEL': 4, 'kREFUEL': 4, 'kRFUEL': 1}
     elif materialOpt == 'trigafuel':
         importanceDict = {'tFUEL': 1}
+    elif materialOpt == 'ctrigafuel':
+        importanceDict = {'tcFUEL': 1}
     elif materialOpt == 'trigamore':
         importanceDict = {'tFUEL': 10, 'tCLAD': 2, 'tZIRC': 2, 'tIRRADIATIONTUBE': 1}
     elif materialOpt == 'manual':
@@ -972,7 +974,7 @@ def define_input_parser():
     parser.add_argument('-n', '--numcoarsegroups', help="The number of coarse groups to be used. If nonzero, overwrites the internal members of 'coarsebdrs'", type=int, default=defaults['numcoarsegroups'])
     parser.add_argument('-l', '--listnumelements', help='Number of elements to be put in each coarse boundary. Number of arguments should be one less than the number of coarse boundaries. Takes priority over "elements" if set', type=int, nargs='+', default=defaults['listnumelements'])
     parser.add_argument('-r', '--resolution', help='Resolution to use for the pointwise flux calculations', type=int, choices=range(11), default=defaults['resolution'])
-    parser.add_argument('-m', '--materialopt', help="Unless 'manual' is used, specifies a set of materials to use. If 'manual' is used, give a space-separated list of material names in 'listmaterials'.", choices=['4','5','c5g7', 'graphite', 'iron', 'kpin', 'kenrichedpin', 'kcladpin', 'kpin2d', 'kenrichedpin2d', 'kmoxpin2d', 'kmoxenrichedpin2d', 'trigafuel', 'trigamore', 'manual'], default=defaults['materialopt'])
+    parser.add_argument('-m', '--materialopt', help="Unless 'manual' is used, specifies a set of materials to use. If 'manual' is used, give a space-separated list of material names in 'listmaterials'.", choices=['4','5','c5g7', 'graphite', 'iron', 'kpin', 'kenrichedpin', 'kcladpin', 'kpin2d', 'kenrichedpin2d', 'kmoxpin2d', 'kmoxenrichedpin2d', 'trigafuel', 'ctrigafuel',  'trigamore', 'manual'], default=defaults['materialopt'])
     parser.add_argument('-i', '--indicatormaterials', dest='listmaterials', help="When manual 'materialopt' is used, specify the materials to use.", nargs='+', default=defaults['listmaterials'])
     parser.add_argument('-I', '--importances', dest='listimportances', help="When manual 'materialopt' is used, specify the weightings (importances) to use when clustering.", nargs='+', type=int, default=[])
     parser.add_argument('-p', '--plotopt', help='Which observations to plot', choices=['none', 'first', 'last', 'firstlast', 'half', 'all', 'sum'], default=defaults['plotopt'])

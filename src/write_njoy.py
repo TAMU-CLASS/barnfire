@@ -166,6 +166,7 @@ def create_njoy_script(dat, tapes):
     create_broadr_input(deck, dat, tapes.bendf, tapes.reconrOut, tapes.broadrOut)
     # Warning: 9547 (Am-242m) and (Np-238) have negative values here sometimes for low Sigma_0
     create_unresr_input(deck, dat, tapes.bendf, tapes.broadrOut, tapes.unresrOut)
+    create_heatr_input(deck, dat, tapes.bendf, tapes.unresrOut, tapes.heatrOut)
     for i, endfThermal in enumerate(endfThermalTapeList):
         thermrInTape, thermrOutTape = get_thermr_tapes(tapes, i)
         if dat.inelasticMTList[i] == 221:
@@ -196,6 +197,7 @@ def create_njoy_script(dat, tapes):
     deck.append(["echo 'Running NJOY'"])
     deck.append(["cat>input <<EOF"])
     create_moder_input(deck, dat, tapes.endf, tapes.bendf)
+    dat.hasDelayedNu, dat.hasDelayedChis = hasDelayed(endfPath)
     create_groupr_input(deck, dat, tapes.bendf, pendfOutTape, tapes.grouprIn, tapes.grouprOut)
     create_moder_input(deck, dat, tapes.grouprOut, tapes.gendfOut)
     if False and dat.numGroups <= 200:
@@ -381,6 +383,19 @@ def create_unresr_input(deck, dat, tapeENDFIn, tapePENDFIn, tapePENDFOut):
     deck.append(dat.sig0List)
     deck.append((0, '/'))
 
+def create_heatr_input(deck, dat, tapeENDFIn, tapePENDFIn, tapePENDFOut):
+    # Compute Kinetic Energ Release cross section (KERMA) by reaction
+    # http://t2.lanl.gov/nis/njoy/in-heatr.html
+    deck.append(['heatr'])
+    deck.append((tapeENDFIn, tapePENDFIn, tapePENDFOut, '/'))
+    npk = 0  #numer of partial kermas desired.
+    if dat.isFissionable:
+        npk = 1  # add one for fission
+    deck.append((dat.mat, npk, '/'))
+    if dat.isFissionable:
+        mtk = 318 # MT number for partial kerma desired. MT318 = Fission
+        deck.append((mtk, '/'))
+
 def create_thermr_input(deck, dat, index, tapeENDFThermalIn, tapePENDFIn, tapePENDFOut):
     # Apply thermal cross sections
     # See http://t2.lanl.gov/njoy/in-thermr.html
@@ -536,6 +551,11 @@ def create_groupr_input(deck, dat, tapeENDFIn, tapePENDFIn, tapeGroupsIn, tapeGE
         namedRxts.append((3,mt,"'(thermal)'",'/'))
     if dat.isFissionable:
         namedRxts.append((3, 452, "'nu'", '/'))
+        if dat.hasDelayedNu:
+            namedRxts.append((3, 455, "'nud'", '/'))
+        namedRxts.append((3, 456, "'nup'", '/'))
+        if dat.hasDelayedChis:
+            namedRxts.append((5, 455, "'chid'", '/'))
     if dat.includeMF6:
         namedRxts.append((6, '/'))
         for mt in dat.thermalMTList:
@@ -662,6 +682,7 @@ class NJOYTape():
         self.reconrOut = -23
         self.broadrOut = -24
         self.unresrOut = -25
+        self.heatrOut = -90
         self.thermrOutA = -26
         self.thermrOutB = -27
         self.grouprIn = 0
@@ -703,7 +724,7 @@ def get_pendf_out_tape(tapes, numThermals):
 def get_thermr_tapes(tapes, i):
     '''Shuffle between thermrOutA and thermrOutB for arbitrary number of thermr tapes'''
     if i == 0:
-        thermrInTape = tapes.unresrOut
+        thermrInTape = tapes.heatrOut
         thermrOutTape = tapes.thermrOutA
     elif i % 2 == 1:
         thermrInTape = tapes.thermrOutA
@@ -732,7 +753,7 @@ def get_temporary_tapes_ace(tapes, pendfOutTape, endfThermalTapeList, numTempera
 
 ###############################################################################
 class NJOYDat():
-    def __init__(self, A=None, Z=None, nuclideName=None, thermalNuclideName=None, thermalFileName=None, endfName=None, endfFile=None, mat=None, aceExt=None, thermList=[0], sig0List=[1e10], groupBdrs=None, groupOpt=0, isFissionable=False, includeMF6=True, usePURR=True, legendreOrder=0, inelasticMTList=[], thermalMTList=[], matThermalList=[], endfThermalFileList=[]):
+    def __init__(self, A=None, Z=None, nuclideName=None, thermalNuclideName=None, thermalFileName=None, endfName=None, endfFile=None, mat=None, aceExt=None, thermList=[0], sig0List=[1e10], groupBdrs=None, groupOpt=0, isFissionable=False, hasDelayedNu=False, hasDelayedChis=False, includeMF6=True, usePURR=True, legendreOrder=0, inelasticMTList=[], thermalMTList=[], matThermalList=[], endfThermalFileList=[]):
         # General
         # Nuclide information
         self.A = A
@@ -774,6 +795,8 @@ class NJOYDat():
         # GROUPR
         self.includeMF6 = includeMF6
         self.isFissionable = isFissionable
+        self.hasDelayedNu = hasDelayedNu
+        self.hasDelayedChis = hasDelayedChis
         self.groupBdrs = groupBdrs
         # ign: 1 for custom structure (see manual)
         self.groupOpt = groupOpt
@@ -834,3 +857,15 @@ def get_inelastic_option(inelasticMT):
         return 4
     #else:
     #    return 0
+
+def hasDelayed(endfPath):
+    hasDelayedNu = False
+    hasDelayedChis = False
+    Endf = open(endfPath, 'r')
+    with Endf:
+        for line in Endf:
+            if ' 1455 ' in line:
+                hasDelayedNu = True
+            if ' 5455 ' in line:
+                hasDelayedChis = True
+    return hasDelayedNu, hasDelayedChis
