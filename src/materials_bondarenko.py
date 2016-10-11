@@ -79,7 +79,7 @@ def print_one_material(rootDirr, outDirr, material, backgroundXSDict, scatMatrix
         metastableStr = ''
         if A // 400 > 0:
             metastableStr = 'm'
-        leafDirr = util.get_nuclide_dirr(sym, effA, Sab, metastableStr) 
+        leafDirr = util.get_nuclide_dirr(sym, effA, Sab, metastableStr)
         inDirr = os.path.join(rootDirr, leafDirr)
         readerOpt = 'gendf'
         outName = 'xs_{0}_{1}-{2}_{3}.data'.format(shortName, sym.lower(), A, numGroups)
@@ -261,8 +261,8 @@ def form_and_print_macroscopic_xs(dirr, ZAList, material, numGroups, verbosity=F
     flux = xsOut[MTwgt]
     promptProd = xsOut[MTnuSigF]
     fission_xs = xsOut[MTfission]
-    nu_delayed = xsOut[MTnudelay]
-    chis_delayed = xsOut[MTdelayedChi]
+    nu_delayed = xsOut.get(MTnudelay, 0.)
+    chis_delayed = xsOut.get(MTdelayedChi, 1.)
     chi_delayed = np.sum(chis_delayed, axis=0)
     fission_x_prompt = xsOut[MTfissionMatrix]
 
@@ -281,7 +281,7 @@ def form_and_print_macroscopic_xs(dirr, ZAList, material, numGroups, verbosity=F
     if verbosity:
         print 'Printing combined XS to {0}'.format(outPath)
     pdtxs.write_PDT_xs_generally(outPath, xsDict)
-    
+
 
 def iterate_one_material(rootDirr, material, maxError, maxIterations, energyMesh=None, fluxDict=None, verbosity=False):
     '''Perform Bondarenko iteration on one material. Fine groups within an energy element share the same background cross section.'''
@@ -332,7 +332,7 @@ def read_one_total_xs(rootDirr, Z, A, material, totalXSDict, readerOpt='gendf', 
     if A // 400 > 0:
         metastableStr = 'm'
     #
-    leafDirr = util.get_nuclide_dirr(sym, effA, Sab, metastableStr) 
+    leafDirr = util.get_nuclide_dirr(sym, effA, Sab, metastableStr)
     fullDirr = os.path.join(rootDirr, leafDirr)
     parser = readgroupr.define_input_parser()
     parseStr = '-i {i} -o {o} -w {w} -p none -m 1 -M -t -T {T} -Z {Z}'.format(

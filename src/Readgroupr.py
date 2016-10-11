@@ -1313,7 +1313,7 @@ def get_pdt_mt_list(endfMTList, neutronTransferList, gammaTransferList):
     return pdtMTList
 
 def get_valid_mts_lists(pdtMTList, neutronTransferList, gammaTransferList):
-    '''Determine the valid MT numbers for MF 3 and MF 6'''
+    '''Determine the valid MT numbers for MF's 3, 5, and 6'''
     validMTsForMF3 = []
     validMTsForMF5 = []
     for pdtMT in pdtMTList:
@@ -1342,7 +1342,11 @@ def get_mt_lists():
 def lookup_num_sig0(maxNumSig0, mf, mt):
     '''Look up the number of background xs the reaction contains (either maxNumSig0 or 1).'''
     if mf == 3:
-        mtsAtMultSig0 = [1, 2, 18, 102, 301, 318]
+        # NJOY 99:
+        mtsAtMultSig0 = {1, 2, 18, 102, 301, 318}
+        # NJOY 2012:
+        #mtsAtMultSig0 = {1, 2, 18, 102, 301, 318}
+        #mtsAtMultSig0 |= {i for i in range(51,91+1)}
         if mt in mtsAtMultSig0:
             return maxNumSig0
         else:
@@ -1853,9 +1857,9 @@ def remove_sparse_holes(holeyRowStart, holeyColSize):
     numGroups = len(holeyRowEnd)
     identityForMin = numGroups
     colStart = identityForMin * np.ones(numGroups, dtype=np.int)
-    colEnd = np.zeros(numGroups)
+    colEnd = np.zeros(numGroups, dtype=np.int)
     fullRowStart = identityForMin * np.ones(numGroups, dtype=np.int)
-    fullRowEnd = np.zeros(numGroups)
+    fullRowEnd = np.zeros(numGroups, dtype=np.int)
     for groupFrom in range(numGroups):
         strt, end = holeyRowStart[groupFrom], holeyRowEnd[groupFrom] + 1
         colStart[strt:end] = np.minimum(groupFrom, colStart[strt:end])
