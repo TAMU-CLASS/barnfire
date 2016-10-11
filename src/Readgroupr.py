@@ -250,9 +250,9 @@ def unify_scattering_sparsity_patterns(data):
         rowStartMat = rxnDict['rowStartMat']
         rowStartMat[rowStartMat == -1] = identityForMin
         minRowStart = np.min(rowStartMat, axis=0)
-        rowEndMat = rowStartMat + rxnDict['colSizeMat']   
-        maxRowEnd = np.max(rowEndMat, axis=0)             
-        maxColSize = maxRowEnd - minRowStart             
+        rowEndMat = rowStartMat + rxnDict['colSizeMat']
+        maxRowEnd = np.max(rowEndMat, axis=0)
+        maxColSize = maxRowEnd - minRowStart
 
         minRowStart, maxColSize = remove_sparse_holes(minRowStart, maxColSize)
         minRowStart[minRowStart == identityForMin] = -1
@@ -1660,7 +1660,7 @@ def condense_xs(xsDataIn, energyMesh, flux, verbosity):
                 wgt = flux[iTherm, iSig0, :] * xsIn[iTherm, iSig0, :]
                 norm = elementFlux[iTherm, iSig0, :]
                 xs[iTherm, iSig0, :] = np.bincount(energyMesh, weights=wgt) / norm
-    #            
+    #
     # >>> Condense the cross sections for MF 5 MT 455 (delayed neutron spectrum) <<<
     # Assuming insensitive to thermal and sig0 index
     mfmtList = [(mf,mt) for (mf,mt) in xsDataIn['mfmts'] if (mf == 5 and mt == 455)]
@@ -1832,9 +1832,9 @@ def condense_xs(xsDataIn, energyMesh, flux, verbosity):
                 if xsLow:
                     sumLow = xsLow * np.sum(wgtLow)
                 # The intermediate high energy fission matrix is nuSigf_{g'->e}
-                highEnergyMat[elem, :] = ( 
-                    np.sum(highEnergyMatIntermediate[highEnergyGroupsInElem, :] * 
-                        wgtHigh[:, np.newaxis], axis=0) + 
+                highEnergyMat[elem, :] = (
+                    np.sum(highEnergyMatIntermediate[highEnergyGroupsInElem, :] *
+                        wgtHigh[:, np.newaxis], axis=0) +
                     sumLow * lowEnergySpectrum ) / (np.sum(wgtLow) + np.sum(wgtHigh))
 
     return xsData
@@ -1852,9 +1852,9 @@ def remove_sparse_holes(holeyRowStart, holeyColSize):
     holeyRowEnd = holeyRowStart + holeyColSize - 1
     numGroups = len(holeyRowEnd)
     identityForMin = numGroups
-    colStart = identityForMin * np.ones(numGroups)
+    colStart = identityForMin * np.ones(numGroups, dtype=np.int)
     colEnd = np.zeros(numGroups)
-    fullRowStart = identityForMin * np.ones(numGroups)
+    fullRowStart = identityForMin * np.ones(numGroups, dtype=np.int)
     fullRowEnd = np.zeros(numGroups)
     for groupFrom in range(numGroups):
         strt, end = holeyRowStart[groupFrom], holeyRowEnd[groupFrom] + 1
@@ -1899,7 +1899,7 @@ def combine_transfer_matrix(data, thermalMTList, thermalMultList=[], verbosity=F
         rxnDict = data['rxn'][(mf,mt)]
         localRowStart = rxnDict['rowStart']
         localColSize = np.diff(rxnDict['indexPtr'])
-        localRowEnd = localRowStart + localColSize 
+        localRowEnd = localRowStart + localColSize
         mask = (localRowStart != -1)
         minRowStart[mask] = np.minimum(minRowStart[mask], localRowStart[mask])
         maxRowEnd = np.maximum(maxRowEnd, localRowEnd)
@@ -2018,7 +2018,7 @@ def interpolate_T_sig0_xs(data, desiredT, desiredSig0Vec, outputDict, verbosity=
             elif localNumTherm == 1:
                 for sig0Index in range(numSig0):
                     mask = sig0FractionMat[sig0Index, :] > 0
-                    rxn['xsOut'][mask] += (sig0FractionMat[sig0Index, mask] * 
+                    rxn['xsOut'][mask] += (sig0FractionMat[sig0Index, mask] *
                         rxn['xs'][0, sig0Index, mask])
             elif localNumSig0 == 1:
                 for thermFrac, thermIndex in zip(thermFractions, thermIndices):
@@ -2085,7 +2085,7 @@ def interpolate_T_sig0_xs(data, desiredT, desiredSig0Vec, outputDict, verbosity=
         # steady-state fission nu and chi is not stored in mfmts
         data['rxn'][(3, 2452)] = {}
         data['rxn'][(3, 2018)] = {}
-        
+
         flux = data['fluxOut']
         fission_xs = data['rxn'][(3 ,18)]['xsOut']
         fission_x_prompt = data['rxn'][(6, 18)]['FissionMatrix']
