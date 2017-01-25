@@ -258,22 +258,23 @@ def form_and_print_macroscopic_xs(dirr, ZAList, material, numGroups, verbosity=F
             xsOut[MT] /= norms[MT]
 
     # Recompute steady-state nu and chi
-    flux = xsOut[MTwgt]
-    promptProd = xsOut[MTnuSigF]
-    fission_xs = xsOut[MTfission]
-    nu_delayed = xsOut.get(MTnudelay, 0.)
-    chis_delayed = xsOut.get(MTdelayedChi, 1.)
-    chi_delayed = np.sum(chis_delayed, axis=0)
-    fission_x_prompt = xsOut[MTfissionMatrix]
+    if all(MTs in xsIn for MTs in [MTnuSigF, MTfission, MTssNu, MTssChi]):
+        flux = xsOut[MTwgt]
+        promptProd = xsOut[MTnuSigF]
+        fission_xs = xsOut[MTfission]
+        nu_delayed = xsOut.get(MTnudelay, 0.)
+        chis_delayed = xsOut.get(MTdelayedChi, 1.)
+        chi_delayed = np.sum(chis_delayed, axis=0)
+        fission_x_prompt = xsOut[MTfissionMatrix]
 
-    nu_prompt = promptProd/fission_xs
-    nu_ss = nu_prompt + nu_delayed
-    n_per_gout = ( np.dot(fission_x_prompt, flux) + \
-                   chi_delayed*np.sum(nu_delayed*fission_xs*flux) )
-    chi_ss = n_per_gout/np.sum(n_per_gout)
+        nu_prompt = promptProd/fission_xs
+        nu_ss = nu_prompt + nu_delayed
+        n_per_gout = ( np.dot(fission_x_prompt, flux) + \
+                       chi_delayed*np.sum(nu_delayed*fission_xs*flux) )
+        chi_ss = n_per_gout/np.sum(n_per_gout)
 
-    xsOut[MTssNu] = nu_ss
-    xsOut[MTssChi] = chi_ss
+        xsOut[MTssNu] = nu_ss
+        xsOut[MTssChi] = chi_ss
 
     # Print out material XS
     outName = 'xs_{0}_{1}.data'.format(shortName, numGroups)

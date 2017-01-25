@@ -2172,10 +2172,14 @@ def write_pdt_xs(filePath, data, temperature, format='csr', whichXS='all', fromF
     numLegMoments = data['numLegMoments']
     xsType = 'multigroup' # Not always true
     groupBoundaries = data['groupBdrs']
-    if whichXS.lower().strip() in 'all':
-        #Include all XS except the combined scattering matrix
+    if whichXS.lower().strip() in ['all', 'everything']:
         numXS = np.sum([1 for (mf, mt) in mfmts if mf == 3])
-        numXfer = np.sum([1 for (mf, mt) in mfmts if (mf == 6 and mt != 1)])
+        if whichXS.lower().strip() in 'all':
+            # all - Include all XS except the combined scattering matrix
+            numXfer = np.sum([1 for (mf, mt) in mfmts if (mf == 6 and mt != 1)])
+        else:
+            # everything - Include all XS
+            numXfer = np.sum([1 for (mf, mt) in mfmts if (mf == 6)])
         # The flux counts as a cross section
         numXS += 1
         if (6,18) in mfmts:
@@ -2188,12 +2192,14 @@ def write_pdt_xs(filePath, data, temperature, format='csr', whichXS='all', fromF
         if (6,18) in mfmts and (5,455) in mfmts:
             # If has both prompt and delayed neutron information, compute and add steady-state nu and chi
             numXS += 2
+            if whichXS.lower().strip() in 'everything':
+                numXfer += 1
     elif whichXS.lower().strip() in 'total':
         #Include flux and total XS
         numXS = 2
         numXfer = 0
     else:
-        # Include flux, total XS, and combined scattering matrix by default. Fission matrix no included
+        # Include flux, total XS, and combined scattering matrix by default. Fission matrix included
         numXS = 2
         numXfer = 0
         if (6,1) in mfmts:
@@ -2210,6 +2216,7 @@ def write_pdt_xs(filePath, data, temperature, format='csr', whichXS='all', fromF
         if (6,18) in mfmts and (5,455) in mfmts:
             # If has both prompt and delayed neutron information, compute and add steady-state nu and chi
             numXS += 2
+            numXfer += 1
         if whichXS.lower().strip() in 'invel' and (3,259) in mfmts:
             # Include the inverse velocity XS, if available
             numXS += 1
@@ -2277,7 +2284,7 @@ def write_pdt_xs(filePath, data, temperature, format='csr', whichXS='all', fromF
         mtsForMF3 = []
         if (3,18) in mfmts:
             mtsForMF3 = [18]
-        if whichXS.lower().strip() in 'all':
+        if whichXS.lower().strip() in ['all', 'everything']:
             mtsForMF3 = [mt for (mf,mt) in sorted(mfmts) if (mf == 3 and mt != 1)]
         elif whichXS.lower().strip() in 'invel':
             if (3,259) in mfmts:
@@ -2349,6 +2356,8 @@ def write_pdt_xs(filePath, data, temperature, format='csr', whichXS='all', fromF
         # Write transfer matrices (sparse matrices)
         if whichXS.lower().strip() in 'all':
             mtsForMF6 = [mt for (mf,mt) in sorted(mfmts) if (mf == 6 and mt != 18 and mt != 1)]
+        elif whichXS.lower().strip() in 'everything':
+            mtsForMF6 = [mt for (mf,mt) in sorted(mfmts) if (mf == 6 and mt != 18)]
         else:
             mtsForMF6 = [mt for (mf,mt) in sorted(mfmts) if (mf == 6 and mt == 1)]
         mf = 6
@@ -2453,7 +2462,7 @@ def define_input_parser():
     parser.add_argument('-M', '--mf6list', help='List of MTs to keep for MF 6. MT of 0 means keep all available. Use ENDF numbering.', nargs='*', type=int, default=[0])
     parser.add_argument('-t', '--thermallist', help='List of thermal MTs to keep. Use unofficial ENDF numbering.', type=int, nargs='*', default=[])
     parser.add_argument('-f', '--format', help='Output format for scattering matrices column or row major).', choices=['csr', 'csc'], default='csr')
-    parser.add_argument('-p', '--printopt', help='Which XS to print. Usual prints selected XS and the combined transfer matrix, invel prints the usual in addition to the inverse velocity, abs prints the one-dimensional elastic and inelastic scattering cross sections so PDT can correctly calculate the net absorption cross section, total just prints the flux and total XS. All prints all XS and transfer matrices except the combined transfer matrix. None prints no PDT XS.', choices=['usual', 'invel', 'abs', 'total', 'all', 'none'], default='usual')
+    parser.add_argument('-p', '--printopt', help='Which XS to print. Usual prints selected XS and the combined transfer matrix, invel prints the usual in addition to the inverse velocity, abs prints the one-dimensional elastic and inelastic scattering cross sections so PDT can correctly calculate the net absorption cross section, total just prints the flux and total XS. All prints all XS and transfer matrices except the combined transfer matrix. None prints no PDT XS.', choices=['usual', 'invel', 'abs', 'total', 'all', 'none', 'everything'], default='usual')
     return parser
 
 ####################################################################################

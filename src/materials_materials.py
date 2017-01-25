@@ -26,6 +26,17 @@ import materials_util as util
 ###############################################################################
 def get_materials_name2function_dict():
     return {
+        # For CERT use
+        'cert': get_cert_material,
+        'certHpolyCfree': get_cert_Hpoly_Cfree,
+        'certHh2o': get_cert_Hh2o,
+        # For CASL use
+        'CASLfuel': get_CASL_fuel_material,
+        'CASLgas': get_CASL_gas_material,
+        'CASLclad': get_CASL_cladding_material,
+        'CASLmod': get_CASL_moderator_material,
+        'CASLss': get_CASL_StainlessSteel_material,
+        'CASLpyrex': get_CASL_pyrex_material,
         # Simple examples
         'hpu': get_hpu_slurry_material,
         'hheu': get_hheu_slurry_material,
@@ -57,6 +68,7 @@ def get_materials_name2function_dict():
         'cCR': get_c5g7_control_rod_material,
         # TRIGA (BOL)
         'tcFUEL': get_depleted_triga_fuel_material,
+        'tdFUEL_0': get_depleted_triga_fuel_material_0,
         'tFUEL': get_triga_fuel_material,
         'tZIRC': get_triga_zirconium_material,
         'tCLAD': get_triga_clad_material,
@@ -116,6 +128,243 @@ def get_materials_name2function_dict():
     }
 
 ###############################################################################
+def get_CASL_fuel_material():
+    shortName = 'CASLfuel'
+    longName = 'CASL fuel material'
+    massDensity = 10.257 #g/cc
+    fuelRadius = 0.4096 #cm
+    temperature = 600. #K
+    thermalOpt = 'free'
+    uAtomFractionsDict = {234:6.11864E-06, 235:7.18132E-04, 236:03.29861E-06, 238:2.21546E-02}
+    elemAtomFracDict = {'O':4.57642E-02, 'U':2.28821E-02}
+    #
+    chordLength = calc_chord_length(fuelRadius)
+    symDict, ZList, ZAList = get_all_isotopes(elemAtomFracDict)
+    abundanceDict = lookup_natl_abundances(ZAList)
+    override_abundances(ZAList, abundanceDict, uAtomFractionsDict, 'U')
+    #
+    material = Material(
+        shortName=shortName, longName=longName,
+        temperature=temperature, thermalOpt=thermalOpt,
+        symDict=symDict, ZList=ZList, ZAList=ZAList,
+        abundanceDict=abundanceDict, chordLength=chordLength,
+        elemAtomFracDict=elemAtomFracDict, massDensity=massDensity)
+    return material
+
+def get_CASL_gas_material():
+    shortName = 'CASLgas'
+    longName = 'CASL gas material'
+    atomDensity = 2.68714e-05
+    fuelRadius = 0.4096 #cm
+    temperature = 600. #K
+    thermalOpt = 'free'
+    elemAtomFracDict = {'He':1.0}
+    #
+    chordLength = calc_chord_length(fuelRadius)
+    symDict, ZList, ZAList = get_all_isotopes(elemAtomFracDict)
+    abundanceDict = lookup_natl_abundances(ZAList)
+    #
+    material = Material(
+        shortName=shortName, longName=longName,
+        temperature=temperature, thermalOpt=thermalOpt,
+        symDict=symDict, ZList=ZList, ZAList=ZAList,
+        abundanceDict=abundanceDict, chordLength=chordLength,
+        elemAtomFracDict=elemAtomFracDict, atomDensity=atomDensity)
+    return material
+
+def get_CASL_cladding_material():
+    shortName = 'CASLclad'
+    longName = 'CASL cladding material'
+    massDensity = 6.56 #g/cc
+    fuelRadius = 0.4096 #cm
+    temperature = 600. #K
+    thermalOpt = 'free'
+    crAtomFractionsDict = {50:3.30121E-06, 52:6.36606E-05, 53:7.21860E-06, 54:1.79686E-06}
+    feAtomFractionsDict = {54:8.68307E-06, 56:1.36306E-04, 57:3.14789E-06, 58:4.18926E-07}
+    zrAtomFractionsDict = {90:2.18865E-02, 91:4.77292E-03, 92:7.29551E-03, 94:7.39335E-03, 
+                           96:1.19110E-03}
+    snAtomFractionsDict = {112:4.68066E-06, 114:3.18478E-06, 115:1.64064E-06, 116:7.01616E-05,
+                           117:3.70592E-05, 118:1.16872E-04, 119:4.14504E-05, 120:1.57212E-04,
+                           122:2.23417E-05, 124:2.79392E-05}
+    hfAtomFractionsDict = {174:3.54138E-09, 176:1.16423E-07, 177:4.11686E-07, 178:6.03806E-07,
+                           179:3.01460E-07, 180:7.76449E-07}
+    elemAtomFracDict = {'Cr':7.59773E-05, 'Fe':1.48556E-04, 'Zr':4.25394E-02, 'Sn':4.82542E-04, 'Hf':2.21337E-06}
+    #
+    chordLength = calc_chord_length(fuelRadius)
+    symDict, ZList, ZAList = get_all_isotopes(elemAtomFracDict)
+    abundanceDict = lookup_natl_abundances(ZAList)
+    override_abundances(ZAList, abundanceDict, crAtomFractionsDict, 'Cr')
+    override_abundances(ZAList, abundanceDict, feAtomFractionsDict, 'Fe')
+    override_abundances(ZAList, abundanceDict, zrAtomFractionsDict, 'Zr')
+    override_abundances(ZAList, abundanceDict, snAtomFractionsDict, 'Sn')
+    override_abundances(ZAList, abundanceDict, hfAtomFractionsDict, 'Hf')
+    #
+    material = Material(
+        shortName=shortName, longName=longName,
+        temperature=temperature, thermalOpt=thermalOpt,
+        symDict=symDict, ZList=ZList, ZAList=ZAList,
+        abundanceDict=abundanceDict, chordLength=chordLength,
+        elemAtomFracDict=elemAtomFracDict, massDensity=massDensity)
+    return material
+
+def get_CASL_moderator_material():
+    shortName = 'CASLmod'
+    longName = 'CASL moderator material'
+    massDensity = 0.743 #g/cc
+    fuelRadius = 0.4096 #cm
+    temperature = 600. #K
+    thermalOpt = 'h2o'
+    bAtomFractionsDict = {10:1.07070E-05, 11:4.30971E-05}
+    elemAtomFracDict = {'H':4.96224E-02, 'O':2.48112E-02, 'B':5.38041E-05}
+    #
+    chordLength = calc_chord_length(fuelRadius)
+    symDict, ZList, ZAList = get_all_isotopes(elemAtomFracDict)
+    abundanceDict = lookup_natl_abundances(ZAList)
+    override_abundances(ZAList, abundanceDict, bAtomFractionsDict, 'B')
+    #
+    material = Material(
+        shortName=shortName, longName=longName,
+        temperature=temperature, thermalOpt=thermalOpt,
+        symDict=symDict, ZList=ZList, ZAList=ZAList,
+        abundanceDict=abundanceDict, chordLength=chordLength,
+        elemAtomFracDict=elemAtomFracDict, massDensity=massDensity)
+    return material
+
+def get_CASL_StainlessSteel_material():
+    shortName = 'CASLss'
+    longName = 'CASL stainless-steel material'
+    massDensity = 8.0 #g/cc
+    fuelRadius = 0.4096 #cm
+    temperature = 600. #K
+    thermalOpt = 'free'
+    siAtomFractionsDict = {28:1.58197E-03, 29:8.03653E-05, 30:5.30394E-05}
+    crAtomFractionsDict = {50:7.64915E-04, 52:1.47506E-02, 53:1.67260E-03, 54:4.16346E-04}
+    feAtomFractionsDict = {54:3.44776E-03, 56:5.41225E-02, 57:1.24992E-03, 58:1.66342E-04}
+    niAtomFractionsDict = {58:5.30854E-03, 60:2.04484E-03, 61:8.88879E-05, 62:2.83413E-04, 64:7.21770E-05}
+    elemAtomFracDict = {'C':3.20895E-04, 'Si':1.71537E-03, 'P':6.99938E-05, 'Cr':1.76045E-02, 'Mn':1.75387E-03, 'Fe':5.89865E-02, 'Ni':7.79786E-03}
+    #
+    chordLength = calc_chord_length(fuelRadius)
+    symDict, ZList, ZAList = get_all_isotopes(elemAtomFracDict)
+    abundanceDict = lookup_natl_abundances(ZAList)
+    override_abundances_as_elemental(ZAList, abundanceDict,  'C')
+    override_abundances(ZAList, abundanceDict, siAtomFractionsDict, 'Si')
+    override_abundances(ZAList, abundanceDict, crAtomFractionsDict, 'Cr')
+    override_abundances(ZAList, abundanceDict, feAtomFractionsDict, 'Fe')
+    override_abundances(ZAList, abundanceDict, niAtomFractionsDict, 'Ni')
+    #
+    material = Material(
+        shortName=shortName, longName=longName,
+        temperature=temperature, thermalOpt=thermalOpt,
+        symDict=symDict, ZList=ZList, ZAList=ZAList,
+        abundanceDict=abundanceDict, chordLength=chordLength,
+        elemAtomFracDict=elemAtomFracDict, massDensity=massDensity)
+    return material
+
+def get_CASL_pyrex_material():
+    shortName = 'CASLpyrex'
+    longName = 'CASL PYREX material'
+    massDensity = 2.25 #g/cc
+    fuelRadius = 0.4096 #cm
+    temperature = 600. #K
+    thermalOpt = 'free'
+    bAtomFractionsDict = {10:9.63266E-04, 11:3.90172E-03}
+    siAtomFractionsDict = {28:1.81980E-02, 29:9.24474E-04, 30:6.10133E-04}
+    elemAtomFracDict = {'B':4.86499E-03, 'O':4.67761E-02, 'Si':1.97326E-02}
+    #
+    chordLength = calc_chord_length(fuelRadius)
+    symDict, ZList, ZAList = get_all_isotopes(elemAtomFracDict)
+    abundanceDict = lookup_natl_abundances(ZAList)
+    override_abundances(ZAList, abundanceDict, bAtomFractionsDict, 'B')
+    override_abundances(ZAList, abundanceDict, siAtomFractionsDict, 'Si')
+    #
+    material = Material(
+        shortName=shortName, longName=longName,
+        temperature=temperature, thermalOpt=thermalOpt,
+        symDict=symDict, ZList=ZList, ZAList=ZAList,
+        abundanceDict=abundanceDict, chordLength=chordLength,
+        elemAtomFracDict=elemAtomFracDict, massDensity=massDensity)
+    return material
+
+def get_cert_material():
+    shortName = 'cert'
+    longName = 'CERT material'
+    massDensity = 5. #g/cc
+    fuelRadius = 0. #cm
+    temperature = 296. #K
+    thermalOpt = 'graphite'
+    hAtomFractionsDict = {1:1.0}
+    bAtomFractionsDict = {10:0.5, 11:0.5}
+    feAtomFractionsDict = {54:0.3, 56:0.3, 58:0.3}
+    crAtomFractionsDict = {50:0.3, 52:0.3, 53:0.3}
+    niAtomFractionsDict = {58:0.3, 60:0.3, 61:0.2, 62:0.2, 64:0.2}
+    amAtomFractionsDict = {241:1.0}
+    elemAtomFracDict = {'H':4.0, 'C':1.0, 'O':1.0, 'N':1.0, 'B':1.0, 'Ar':1.0, 'Al':1.0, 'Fe': 1.0, 'F':1.0, 'Am':1.0, 'Be':1.0, 'Cr':1.0, 'Ni':1.0, 'Mn':1.0}
+    #
+    chordLength = calc_chord_length(fuelRadius)
+    symDict, ZList, ZAList = get_all_isotopes(elemAtomFracDict)
+    abundanceDict = lookup_natl_abundances(ZAList)
+    override_abundances(ZAList, abundanceDict, hAtomFractionsDict, 'H')
+    override_abundances_as_elemental(ZAList, abundanceDict,  'C')
+    override_abundances(ZAList, abundanceDict, bAtomFractionsDict, 'B')
+    override_abundances(ZAList, abundanceDict, feAtomFractionsDict, 'Fe')
+    override_abundances(ZAList, abundanceDict, crAtomFractionsDict, 'Cr')
+    override_abundances(ZAList, abundanceDict, niAtomFractionsDict, 'Ni')
+    override_abundances(ZAList, abundanceDict, amAtomFractionsDict, 'Am')
+    #
+    material = Material(
+        shortName=shortName, longName=longName,
+        temperature=temperature, thermalOpt=thermalOpt,
+        symDict=symDict, ZList=ZList, ZAList=ZAList,
+        abundanceDict=abundanceDict, chordLength=chordLength,
+        elemAtomFracDict=elemAtomFracDict, massDensity=massDensity)
+    return material
+
+def get_cert_Hpoly_Cfree():
+    shortName = 'certHpolyCfree'
+    longName = 'CERT H-poly Carbon-Free'
+    massDensity = 5. #g/cc
+    fuelRadius = 0. #cm
+    temperature = 296. #K
+    thermalOpt = 'poly'
+    hAtomFractionsDict = {1:1.0}
+    elemAtomFracDict = {'H':4.0, 'C':1.0}
+    #
+    chordLength = calc_chord_length(fuelRadius)
+    symDict, ZList, ZAList = get_all_isotopes(elemAtomFracDict)
+    abundanceDict = lookup_natl_abundances(ZAList)
+    override_abundances(ZAList, abundanceDict, hAtomFractionsDict, 'H')
+    override_abundances_as_elemental(ZAList, abundanceDict,  'C')
+    #
+    material = Material(
+        shortName=shortName, longName=longName,
+        temperature=temperature, thermalOpt=thermalOpt,
+        symDict=symDict, ZList=ZList, ZAList=ZAList,
+        abundanceDict=abundanceDict, chordLength=chordLength,
+        elemAtomFracDict=elemAtomFracDict, massDensity=massDensity)
+    return material
+
+def get_cert_Hh2o():
+    shortName = 'certHhwo'
+    longName = 'CERT H-h2o'
+    massDensity = 5. #g/cc
+    fuelRadius = 0. #cm
+    temperature = 293.6 #K
+    thermalOpt = 'h2o'
+    hAtomFractionsDict = {1:1.0}
+    elemAtomFracDict = {'H':4.0}
+    #
+    chordLength = calc_chord_length(fuelRadius)
+    symDict, ZList, ZAList = get_all_isotopes(elemAtomFracDict)
+    abundanceDict = lookup_natl_abundances(ZAList)
+    override_abundances(ZAList, abundanceDict, hAtomFractionsDict, 'H')
+    #
+    material = Material(
+        shortName=shortName, longName=longName,
+        temperature=temperature, thermalOpt=thermalOpt,
+        symDict=symDict, ZList=ZList, ZAList=ZAList,
+        abundanceDict=abundanceDict, chordLength=chordLength,
+        elemAtomFracDict=elemAtomFracDict, massDensity=massDensity)
+    return material
 
 def get_hpu_slurry_material():
     shortName = 'hpu'
@@ -736,7 +985,76 @@ def get_depleted_triga_fuel_material():
         temperatureIndex=temperatureIndex)
     return material
 
-
+def get_depleted_triga_fuel_material_0():
+    shortName = 'tcFUEL_0'
+    longName = 'depleted U-ZrH fuel for group 0'
+    massDensity = 7.03712243885 #g/cc
+    fuelRadius = 1.7920 #cm
+    temperature = 296. #K
+    temperatureIndex = 0 # X in .9Xc
+    thermalOpt = 'zrh'
+    uAtomFractionsDict = {234: 0.00237593797953, 235: 0.191850538338, 236: 0.00235384419777, 237: 9.83570800426e-08, 238: 0.803419581128, 239: 7.34951899347e-21}
+    npAtomFractionsDict = {236: 4.75175327858e-07, 237: 0.979359569485, 238: 1.72283981355e-05, 239: 0.0206227269414}
+    puAtomFractionsDict = {236: 1.0165129505e-12, 238: 0.000179511452041, 239: 0.978492414475, 240: 0.0199418257917, 241: 0.00137463797917, 242: 1.16103012497e-05, 243: 4.96747661286e-18}
+    krAtomFractionsDict = {83: 1.0}
+    moAtomFractionsDict = {95: 0.999493460792, 99: 0.000506539208256}
+    tcAtomFractionsDict = {99: 1.0}
+    ruAtomFractionsDict = {101: 1.0}
+    rhAtomFractionsDict = {103: 0.999983397462, 105: 1.6602537619e-05}
+    pdAtomFractionsDict = {105: 1.0}
+    agAtomFractionsDict = {109: 1.0}
+    cdAtomFractionsDict = {113: 1.0}
+    iAtomFractionsDict = {129: 0.161875969251, 131: 0.00492532303862, 135: 0.83319870771}
+    xeAtomFractionsDict = {131: 1.0}
+    csAtomFractionsDict = {133: 0.350006655089, 134: 0.00110074065573, 135: 0.321543868715, 137: 0.32734873554}
+    baAtomFractionsDict = {140: 1.0}
+    laAtomFractionsDict = {139: 1.0}
+    prAtomFractionsDict = {141: 1.0}
+    ndAtomFractionsDict = {143: 0.592721850187, 145: 0.407278149813}
+    pmAtomFractionsDict = {147: 0.998887521779, 148: 9.94987831307e-05, 149: 0.000177085934389, 548: 0.000835893503465}
+    smAtomFractionsDict = {147: 0.324637254037, 149: 0.10784358753, 150: 0.305104535025, 151: 0.128976472686, 152: 0.133438150722}
+    euAtomFractionsDict = {153: 0.874416163934, 154: 0.0169891366143, 155: 0.106686050938, 156: 0.00190864851369}
+    gdAtomFractionsDict = {155: 0.782267746745, 157: 0.217732253255}
+    erAtomFractionsDict = {162: 0.00137598775175, 164: 0.0159425401897, 166: 0.334225123263, 167: 0.203765475762, 168: 0.295726872103, 170: 0.14896400093}
+    elemMassFracDict = {'U': 0.577261099635, 'Np': 9.83066023567e-06, 'Pu': 0.000641010139292, 'Kr': 6.14038720784e-06, 'Mo': 7.83261923633e-05, 'Tc': 8.46397540944e-05, 'Ru': 7.32235072512e-05, 'Rh': 4.25306093512e-05, 'Pd': 1.54430692546e-05, 'Ag': 6.24461916685e-07, 'Cd': 9.90783178258e-08, 'I': 6.28971369797e-05, 'Xe': -3.39206680941e-14, 'Cs': 0.000353295367407, 'Ba': 1.28879873541e-06, 'La': 0.000125545820228, 'Pr': 0.000111782849074, 'Nd': 0.000195011942252, 'Pm': 2.69089775217e-05, 'Sm': 5.51941031766e-05, 'Eu': 4.23021088073e-06, 'Gd': 1.3253849464e-07, 'Er': 0.0182166597237, 'Zr': 1.28978397707, 'H': 0.0220643876356, 'C': 0.00696418823189, 'Hf': 7.41660088593e-05}
+    #
+    chordLength = calc_chord_length(fuelRadius)
+    symDict, ZList, ZAList = get_all_isotopes(elemMassFracDict)
+    abundanceDict = lookup_natl_abundances(ZAList)
+    override_abundances(ZAList, abundanceDict, uAtomFractionsDict, 'U', 'Mass')
+    override_abundances(ZAList, abundanceDict, npAtomFractionsDict, 'Np', 'Mass')
+    override_abundances(ZAList, abundanceDict, puAtomFractionsDict, 'Pu', 'Mass')
+    override_abundances(ZAList, abundanceDict, krAtomFractionsDict, 'Kr', 'Mass')
+    override_abundances(ZAList, abundanceDict, moAtomFractionsDict, 'Mo', 'Mass')
+    override_abundances(ZAList, abundanceDict, tcAtomFractionsDict, 'Tc', 'Mass')
+    override_abundances(ZAList, abundanceDict, ruAtomFractionsDict, 'Ru', 'Mass')
+    override_abundances(ZAList, abundanceDict, rhAtomFractionsDict, 'Rh', 'Mass')
+    override_abundances(ZAList, abundanceDict, pdAtomFractionsDict, 'Pd', 'Mass')
+    override_abundances(ZAList, abundanceDict, agAtomFractionsDict, 'Ag', 'Mass')
+    override_abundances(ZAList, abundanceDict, cdAtomFractionsDict, 'Cd', 'Mass')
+    override_abundances(ZAList, abundanceDict, iAtomFractionsDict, 'I', 'Mass')
+    override_abundances(ZAList, abundanceDict, xeAtomFractionsDict, 'Xe', 'Mass')
+    override_abundances(ZAList, abundanceDict, csAtomFractionsDict, 'Cs', 'Mass')
+    override_abundances(ZAList, abundanceDict, baAtomFractionsDict, 'Ba', 'Mass')
+    override_abundances(ZAList, abundanceDict, laAtomFractionsDict, 'La', 'Mass')
+    override_abundances(ZAList, abundanceDict, prAtomFractionsDict, 'Pr', 'Mass')
+    override_abundances(ZAList, abundanceDict, ndAtomFractionsDict, 'Nd', 'Mass')
+    override_abundances(ZAList, abundanceDict, pmAtomFractionsDict, 'Pm', 'Mass')
+    override_abundances(ZAList, abundanceDict, smAtomFractionsDict, 'Sm', 'Mass')
+    override_abundances(ZAList, abundanceDict, euAtomFractionsDict, 'Eu', 'Mass')
+    override_abundances(ZAList, abundanceDict, gdAtomFractionsDict, 'Gd', 'Mass')
+    override_abundances(ZAList, abundanceDict, erAtomFractionsDict, 'Er', 'Mass')
+    override_abundances_as_elemental(ZAList, abundanceDict,  'C')
+    #
+    material = Material(
+        shortName=shortName, longName=longName,
+        temperature=temperature, thermalOpt=thermalOpt,
+        symDict=symDict, ZList=ZList, ZAList=ZAList,
+        abundanceDict=abundanceDict, chordLength=chordLength,
+        elemMassFracDict=elemMassFracDict, massDensity=massDensity,
+        temperatureIndex=temperatureIndex)
+    return material
+        
 def get_triga_fuel_material():
     shortName = 'tFUEL'
     longName = 'U-ZrH fuel'
@@ -1494,7 +1812,7 @@ def get_all_isotopes(elemDict):
             ZAList += get_isotope_ZAs(Z)
     return symDict, ZList, ZAList
 
-def get_isotope_ZAs(Z, cutoff=0.00005):
+def get_isotope_ZAs(Z, cutoff=0.005):
     '''Get all isotopes with natural abundance at least cutoff for element Z.
     nd.isotopes does not return any metastable A's.'''
     ''' Skip isotopes with only metastable isomers'''
