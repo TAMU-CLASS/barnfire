@@ -247,7 +247,7 @@ def write_PDT_xs_body(filePath, xsDat):
                 last = numGroups - 1
                 vec = [g, first, last]
                 fid.write(multiline_string(vec, 5, 3, 10))
-                fid.write(multiline_string(fissionMatrix[:, g], 20, 5, 12))
+                fid.write(multiline_string(fissionMatrix[g, :], 20, 5, 12))
         # write transfer matrices except for fission matrix
         for MT in [MT for MT in xferMTOrder if MT != mtFissionMatrix]:
             scatMatrix = xsDat.xs[MT]

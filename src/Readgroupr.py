@@ -352,6 +352,7 @@ def merge_data_prompt_fission_matrix(data, xsDict):
     #lowEnergySpectrum is indexed by (groupTo)
     #highEnergyMatrix is indexed by (groupFrom, groupTo)
     #highEnergyMatrix applies to groups 0 through highestHighEnergyGroup (inclusive)
+    #FissionMatrix is indexed by (groupFrom, groupTo)
 
 def merge_data_delayed_fission_xs(data, xsDict):
     '''Merge xsDict into data. Overwrite delayed fission chi, nu, and decay constant'''
@@ -570,9 +571,9 @@ def read_prompt_fission_matrix_body(fid, xsDict, verbosity=0):
     FissionMatrix = np.zeros((numGroups, numGroups))
     FissionMatrix[0:lowestHighEnergyGroup, :] = np.outer(lowEnergyProd, lowEnergySpectrum)
     FissionMatrix[lowestHighEnergyGroup:numGroups, :] = highEnergyMatrix
-    # Compute total fission source = F'*phi
+    # Compute prompt fission source = F'*phi
     F_phi = np.dot(flux, FissionMatrix)
-    # prompt Chi is normalized total fission source
+    # prompt Chi is normalized promt fission source
     promptChi = F_phi/np.sum(F_phi)
     # prompt nu*sig_f (Prod) is row sum of F
     promptProd = np.sum(FissionMatrix, 1)
@@ -1258,14 +1259,15 @@ def get_gamma_transfer_list():
 
 def get_mts_for_combining():
     '''
-    Use MT 2501 for the sum of all transfer reactions except fission.
-    One (and only one) scattering source should be added to 2501 at the very end.
+    Use MT 2519 for the sum of all transfer reactions except fission.
+    One (and only one) scattering source should be added to 2519 at the very end.
     Except in the case of Be (see manual), the thermal scattering xfer matrix
-       should overwrite the existing 2501 values and the total xs should be updated
+       should overwrite the existing 2519 values and the total xs should be updated
        to be consistent with the new scattering xs in the thermal range.
     '''
     combineTransferList = [2, 16, 17, 22, 28, 37]
     for i in range(51, 91+1):
+        # Inelasti scatterings
         combineTransferList.append(i)
     return combineTransferList
 
@@ -1295,7 +1297,7 @@ def get_pdt_mt_list(endfMTList, neutronTransferList, gammaTransferList):
     pdtMTList.append((1018, 'chi', 'nFissionSpectrum'))
     pdtMTList.append((1452, 'nufission', 'nNuFission'))
     pdtMTList.append((2055, 'chid', 'nDelayedFissionSpectrum'))
-    pdtMTList.append((2501, 'allxfer', 'combinedNonFissionTransfer'))
+    pdtMTList.append((2519, 'xfernofission', 'combinedNonFissionTransfer'))
     #Append valid neutron xfer matrices
     for endfMT in endfMTList:
         mt, shortName, longName = endfMT
@@ -1458,7 +1460,7 @@ def print_mts(pdtMTList, combineTransferList, validMTsForMF3, validMTsForMF5, va
     print 'PDT rxns'
     for pdtMT in pdtMTList:
         print pdtMT
-    print 'Combine these rxns into 2501'
+    print 'Combine these rxns into 2519'
     print combineTransferList
     print 'Valid ENDF MT numbers for MF 3'
     print validMTsForMF3
@@ -1915,7 +1917,7 @@ def combine_transfer_matrix(data, thermalMTList, thermalMultList=[], verbosity=F
     unionIndexPtr = np.zeros(numGroups + 1, dtype=np.int)
     unionIndexPtr[1:] = np.cumsum(maxColSize)
     xsSize = unionIndexPtr[-1]
-    mfmtXfer = (6,1)
+    mfmtXfer = (6,19)
     data['mfmts'].update([mfmtXfer])
     data['rxn'][mfmtXfer] = {}
     data['rxn'][mfmtXfer]['xsOut'] = np.zeros((numLegMoments, xsSize))
@@ -2176,7 +2178,7 @@ def write_pdt_xs(filePath, data, temperature, format='csr', whichXS='all', fromF
         numXS = np.sum([1 for (mf, mt) in mfmts if mf == 3])
         if whichXS.lower().strip() in 'all':
             # all - Include all XS except the combined scattering matrix
-            numXfer = np.sum([1 for (mf, mt) in mfmts if (mf == 6 and mt != 1)])
+            numXfer = np.sum([1 for (mf, mt) in mfmts if (mf == 6 and mt != 19)])
         else:
             # everything - Include all XS
             numXfer = np.sum([1 for (mf, mt) in mfmts if (mf == 6)])
@@ -2192,8 +2194,6 @@ def write_pdt_xs(filePath, data, temperature, format='csr', whichXS='all', fromF
         if (6,18) in mfmts and (5,455) in mfmts:
             # If has both prompt and delayed neutron information, compute and add steady-state nu and chi
             numXS += 2
-            if whichXS.lower().strip() in 'everything':
-                numXfer += 1
     elif whichXS.lower().strip() in 'total':
         #Include flux and total XS
         numXS = 2
@@ -2202,12 +2202,16 @@ def write_pdt_xs(filePath, data, temperature, format='csr', whichXS='all', fromF
         # Include flux, total XS, and combined scattering matrix by default. Fission matrix included
         numXS = 2
         numXfer = 0
-        if (6,1) in mfmts:
+        if (6,19) in mfmts:
             numXfer += 1
         if (6,18) in mfmts:
             numXS += 2
+            numXfer += 1
         if (3,18) in mfmts:
             # add MT 18
+            numXS += 1
+        if (3, 455) in mfmts:
+            # add MT 455 (delayed nu)
             numXS += 1
         if (5,455) in mfmts:
             # Add decayConst and delayedChi for delay fission neutrons
@@ -2216,7 +2220,6 @@ def write_pdt_xs(filePath, data, temperature, format='csr', whichXS='all', fromF
         if (6,18) in mfmts and (5,455) in mfmts:
             # If has both prompt and delayed neutron information, compute and add steady-state nu and chi
             numXS += 2
-            numXfer += 1
         if whichXS.lower().strip() in 'invel' and (3,259) in mfmts:
             # Include the inverse velocity XS, if available
             numXS += 1
@@ -2284,6 +2287,8 @@ def write_pdt_xs(filePath, data, temperature, format='csr', whichXS='all', fromF
         mtsForMF3 = []
         if (3,18) in mfmts:
             mtsForMF3 = [18]
+        if (3,455) in mfmts:
+            mtsForMF3.append(455)
         if whichXS.lower().strip() in ['all', 'everything']:
             mtsForMF3 = [mt for (mf,mt) in sorted(mfmts) if (mf == 3 and mt != 1)]
         elif whichXS.lower().strip() in 'invel':
@@ -2355,11 +2360,11 @@ def write_pdt_xs(filePath, data, temperature, format='csr', whichXS='all', fromF
             fid.write(multiline_string(chi_ss, 20, 5, 12))
         # Write transfer matrices (sparse matrices)
         if whichXS.lower().strip() in 'all':
-            mtsForMF6 = [mt for (mf,mt) in sorted(mfmts) if (mf == 6 and mt != 18 and mt != 1)]
+            mtsForMF6 = [mt for (mf,mt) in sorted(mfmts) if (mf == 6 and mt != 18 and mt != 19)]
         elif whichXS.lower().strip() in 'everything':
             mtsForMF6 = [mt for (mf,mt) in sorted(mfmts) if (mf == 6 and mt != 18)]
         else:
-            mtsForMF6 = [mt for (mf,mt) in sorted(mfmts) if (mf == 6 and mt == 1)]
+            mtsForMF6 = [mt for (mf,mt) in sorted(mfmts) if (mf == 6 and mt == 19)]
         mf = 6
         for mt in mtsForMF6:
             pdtMT = get_pdt_mt(mf, mt)
