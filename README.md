@@ -61,7 +61,8 @@ An example of how to run and produce FEDS XS is given in [examples/create\_xs.sh
 
 [This](src) directory hosts several Python codes and a few shell scripts. Of note:
 
-* [RunProb.sh](src/RunProb.sh) -- List of several example problem inputs. * [directories.py](src/directories.py) -- specifies directory locations where input data, problems, output data, and output figures may be found. You may need to __export__ the locations of your scratch directory (`SCRATCH_BARN`), ENDF/B data (`ENDF`), and NJOY executable (`NJOY`).
+* [RunProb.sh](src/RunProb.sh) -- List of several example problem inputs. 
+* [directories.py](src/directories.py) -- specifies directory locations where input data, problems, output data, and output figures may be found. You may need to __export__ the locations of your scratch directory (`SCRATCH_BARN`), ENDF/B data (`ENDF`), and NJOY executable (`NJOY`).
 * [materials.py](src/materials.py) -- Caller for a set of scripts with names `materials_*.py` that handle material specification (`--njoy` option) and cross section generation (`--bonderanko` option). Material specification mixes nuclides to generate a materials and creates NJOY input scripts for each unique nuclide in the problem. Cross section generation uses material specifications and interpolates MG GENDF files produced by NJOY into FEDS XS in PDT format. To get help, run `./materials.py -h`
 * [indicators.py](src/indicators.py) -- Generates spectra that are used
   either as inputs to the minimization problem, which produces the FEDS energy
