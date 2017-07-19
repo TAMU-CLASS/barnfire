@@ -453,7 +453,7 @@ def compute_total_xs(materials, linearTol, maxXSJump, maxdEJump, temperatureDepe
     else:
         for material in materials:
             material.update_temperature(-1)
-        
+
     # Read in pointwise cross sections from their PENDF files at the desired temperatures
     energyGridDict = {}
     totalXSDict = {}
@@ -514,7 +514,7 @@ def compute_total_xs(materials, linearTol, maxXSJump, maxdEJump, temperatureDepe
 ###############################################################################
 def perform_slowing_down_calc(energyGridDict, scatXSDict, unionFluxMat, materialIndexDict, alphaDict, unionXSMat, unionEnergyGrid, materials, WattConstants, macroEscapeXS=0., normalizeSource=True, useLowZScat=False, noScatOpt=False, plotOutput=False):
     '''Solve the slowing-down system to get an infinite-medium Q/Sigma_t
-    These sources are meant to approximate NJOY's sources. See NJOY 2012 manual, page 237 ff.
+    These sources are meant to approximate NJOY's sources. See NJOY 2016 manual, page ~236 ff. (GROUPR)
     '''
 
     # Set the output plot directory

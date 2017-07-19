@@ -7,20 +7,20 @@ Utility functions for materials.
 References:
 mcnp5: MCNP 5 Manual, Volume I, LA-UR-03-1987, Appendix G (MCNP Data Libraries, including S(alpha,beta))
 mcnpdata: Listing of Available ACE Data Tables [for MCNP6], LA-UR-13-21822 (An updated version of the above)
-njoy2012: The NJOY Nuclear Data Processing System, Version 2012, LA-UR-12-27079 (NJOY 2012 manual)
+njoy2016: The NJOY Nuclear Data Processing System, Version 2016, LA-UR-17-20093 (NJOY 2016 manual)
 endf6: ENDF-6 Formats Manual, BNL-90365-2009 Rev.2 (Description of the ENDF-6 format)
 
 Naming conventions:
 'Thermal name' is specified in materials_materials.py and applies to a material (e.g., ZrH is 'zrh').
-'Element thermal name' includes the (bound) thermal treatment of the material and the applicable 
+'Element thermal name' includes the (bound) thermal treatment of the material and the applicable
     element (e.g., H in Zr is 'hzrh'). Uses Hollerith strings specified in Table 21 of MATXSR chapter
-    in NJOY manual (ref: njoy2012).
+    in NJOY manual (ref: njoy2016).
     Elsewhere, this is called Sab.
 'Thermal XS name' includes the (bound) thermal treatment of the material, the applicable element,
     and the applicable type of thermal XS (e.g., the inelastic bound thermal XS for H in ZrH is 'hzrhinel')
 'MCNP thermal name' is the string used by MCNP to refer to a bound thermal treatment of a material along
     with a consituent element (e.g., the bound thermal XS for H in ZrH is 'h/zr')
-NB: 'free' is used for thermal name, element thermal name, and thermal xs name for free-gas thermal    
+NB: 'free' is used for thermal name, element thermal name, and thermal xs name for free-gas thermal
     treatment
 NB: ''/None/'none' is used for thermal name; 'none' is used for element thermal name; [] is used
     for the thermal xs list (for no thermal treatment)
@@ -81,9 +81,9 @@ def is_fissionable((Z,A)):
 def avogadros_number():
     '''In units of atoms / mole, but multiplied by 1E-24'''
     return 0.60221413
-    
+
 def get_inelastic_thermal_mt_list():
-    '''Ref: Culled from Table 4 in the NJOY manual (ref: njoy2012)'''
+    '''Ref: Culled from Table 4 in the NJOY manual (ref: njoy2016)'''
     return set([221, 222, 223, 225, 227, 228, 229, 231, 233, 235, 237, 239, 241, 243, 245])
 
 ###############################################################################
@@ -129,7 +129,7 @@ def get_element_thermal_name_to_nuclide_list_dict():
 
 def get_element_thermal_name_to_inelastic_mt_number_dict():
     '''Returns a dict that maps element thermal name to the MT number corresponding to the
-    inelastic thermal XS for that element thermal name. See Tables 4 and 25 in NJOY manual (ref: njoy2012).
+    inelastic thermal XS for that element thermal name. See Tables 4 and 25 in NJOY manual (ref: njoy2016).
     Should correspond to 'inel' endf numbers in Readgroupr.py's get_endf_mt_list() function.'''
     return {'free': 221, 'hh2o': 222, 'ouo2': 239, 'uuo2': 241, 'hzrh': 225, 'zrzrh': 235, 'graph': 229, 'al': 243, 'fe': 245}
 
@@ -138,7 +138,7 @@ def get_thermal_name_to_nuclide_list_dict():
     Free thermal treatment is not in dict'''
     # Derive this dictionary from previous information
     Zthermal2elem = get_thermal_name_to_element_thermal_name_dict()
-    elem2ZAs = get_element_thermal_name_to_nuclide_list_dict() 
+    elem2ZAs = get_element_thermal_name_to_nuclide_list_dict()
     # First, initialize each thermal name as an empty set of nuclides
     thermal2ZAs = {}
     for (Z,thermalName) in Zthermal2elem:
@@ -163,12 +163,12 @@ def get_non_bound_names():
 
 def get_element_thermal_name_to_thermal_xs_list_dict():
     '''Returns a dict that maps element thermal name to a list of thermal XS names.
-    See Tables 4 and 25 in NJOY manual (ref: njoy2012)'''
+    See Tables 4 and 25 in NJOY manual (ref: njoy2016)'''
     return {'free': ['free'], 'none': [], 'hh2o': ['hh2o'], 'ouo2': ['ouo2inel', 'ouo2elas'], 'uuo2': ['uuo2inel', 'uuo2elas'], 'hzrh': ['hzrhinel', 'hzrhelas'], 'zrzrh': ['zrzrhinel', 'zrzrhelas'], 'graph': ['graphinel', 'graphelas'], 'al': ['alinel', 'alelas'], 'fe': ['feinel', 'feelas'],}
 
 def get_element_thermal_name_to_mat_number_dict():
     '''Returns a dict that maps element thermal name to thermal MAT number.
-    See Table 4 in THERMR chapter of NJOY manual (ref: njoy2012).
+    See Table 4 in THERMR chapter of NJOY manual (ref: njoy2016).
     Change: Manuals say Al is material 45, but the data file has material 53'''
     return {'free': 0, 'none': 0, 'hh2o': 1, 'ouo2': 75, 'uuo2': 48, 'hzrh': 7, 'zrzrh': 58, 'graph': 31, 'al': 53, 'fe': 56}
 
@@ -176,7 +176,7 @@ def get_element_thermal_name_to_bnl_id_dict():
     '''Returns a dict that maps element thermal name to BNL's ID. Used in URL for automatic downloads.
     Free thermal treatment not in dict. Last verified: 05/31/2016.'''
     return {'hh2o': 15391, 'ouo2': 15395, 'uuo2': 15402, 'hzrh': 15392, 'zrzrh': 15403, 'graph': 15389, 'al': 15383, 'fe': 15384}
-    
+
 def get_element_thermal_name_to_endf_filename_dict():
     '''Returns a dict that maps element thermal name to bound thermal ENDF file name'''
     # Derive this dictionary from previous information
@@ -185,7 +185,7 @@ def get_element_thermal_name_to_endf_filename_dict():
     elem2filename = {}
     for (Z,thermalName) in ZName2elem:
         elem = ZName2elem[(Z,thermalName)]
-        elem2filename[elem] = ZName2filename(Z=Z, thermalName=thermalName) 
+        elem2filename[elem] = ZName2filename(Z=Z, thermalName=thermalName)
     for key in ['free', None]:
         elem2filename[key] = None
     return elem2filename
@@ -208,7 +208,7 @@ def get_mcnp_thermal_name_to_zaid_list_dict():
     '''Returns a dict that maps MCNP bound thermal material name to a ZZAAA string of the nuclides that use this thermal option. Ref: mcnp5, mcnpdata'''
     # Derive this dictionary from previous information
     elem2mcnp = get_element_thermal_name_to_mcnp_thermal_name_dict()
-    elem2ZAs = get_element_thermal_name_to_nuclide_list_dict() 
+    elem2ZAs = get_element_thermal_name_to_nuclide_list_dict()
     ZA2zaid = format_zaid()
     mcnp2zaid = {}
     for elem in elem2mcnp:
@@ -217,7 +217,7 @@ def get_mcnp_thermal_name_to_zaid_list_dict():
         zaidList = [ZA2zaid(Z=Z, A=A) for (Z,A) in ZAList]
         mcnp2zaid[mcnpName] = zaidList
     return mcnp2zaid
-    
+
 ###############################################################################
 def print_newline(verbosity=False):
     if verbosity:

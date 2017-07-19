@@ -58,7 +58,7 @@ def get_union_sab_nuclide_list(materials):
             Sab = za2sab[(Z,A)]
             globalZASabList.add((Z,A,Sab))
     return globalZASabList
-        
+
 def get_union_nuclide_list(materials):
     globalZAList = set()
     for material in materials:

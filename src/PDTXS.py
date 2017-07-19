@@ -5,6 +5,7 @@ Andrew Till
 Winter 2015
 
 Python-based PDT cross section reader / writer
+Use python2
 '''
 
 #STDLIB
@@ -114,7 +115,7 @@ def read_PDT_xs_generally(filePath):
                 readXfer += 1
                 xsDict[MT] = np.zeros((numMoments, numGroups, numGroups))
                 # Index scatXfer by [moment, group to, group from]. Uses aliasing
-                scatXfer = xsDict[MT]                
+                scatXfer = xsDict[MT]
                 for m in range(numMoments):
                     for g2 in range(numGroups):
                         t = fid.readline().split()
@@ -133,7 +134,7 @@ def write_PDT_xs_generally(filePath, xsDat, fromStr='barnfire'):
     temperatureList = [xsDat.T]
     write_PDT_xs_header(filePath, xsDat, temperatureList, fromStr)
     write_PDT_xs_body(filePath, xsDat)
-    
+
 def write_PDT_xs_header(filePath, xsDat, temperatureList=[], fromStr='barnfire'):
     '''Write a PDT XS from a PDT_XS object'''
     # Get XS meta-information
@@ -180,7 +181,7 @@ def write_PDT_xs_header(filePath, xsDat, temperatureList=[], fromStr='barnfire')
         fid.write('\n')
         fid.write('Group boundaries in eV:\n')
         fid.write(multiline_string(groupBoundaries, 15, 5, 7))
-        fid.write('\n') 
+        fid.write('\n')
 
 def write_PDT_xs_body(filePath, xsDat):
     '''Write a PDT XS from a PDT_XS object'''
@@ -278,7 +279,7 @@ def read_fixed_line(obj, objSize, numPerLine, fid):
     """
 
     loc = 0
-    requiredLines = objSize / numPerLine  # integer math!
+    requiredLines = objSize // numPerLine
     lastLineSize =  objSize % numPerLine
     for L in range(requiredLines):
         t = fid.readline().split()
@@ -505,4 +506,5 @@ def print_PDT_MT_enum():
   MT_x_th_zrhyd_zr_incoh, // MT = 2735,  Zr in ZrH incoherent
   MT_x_th_zrhyd_zr_coh  , // MT = 2736,  Zr in ZrH coherent
 '''
+
 

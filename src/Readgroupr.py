@@ -1170,10 +1170,10 @@ def seek_to_next_entry(fid, currentMf, currentMt):
 ####################################################################################
 def get_endf_mt_list():
     '''Provides a subset of the officially-recognized ENDF MT numbers and their meaning.
-    See Tables 4, 21, and 25 in NJOY 2012 manual for MT numbers and names of thermal XS
+    See Tables 4, 21, and 25 in NJOY 2016 manual for MT numbers and names of thermal XS
     References:
     endf6: ENDF-6 Formats Manual, BNL-90365-2009 Rev.2 (Description of the ENDF-6 format)
-    njoy2012: The NJOY Nuclear Data Processing System, Version 2012, LA-UR-12-27079 (NJOY 2012 manual)
+    njoy2016: The NJOY Nuclear Data Processing System, Version 2016, LA-UR-17-20093 (NJOY 2016 manual)
     '''
     endfMTList = []
     # Neutrons
@@ -1342,11 +1342,10 @@ def get_mt_lists():
 def lookup_num_sig0(maxNumSig0, mf, mt):
     '''Look up the number of background xs the reaction contains (either maxNumSig0 or 1).'''
     if mf == 3:
-        # NJOY 99:
+        # NJOY 99 -- 2016:
         mtsAtMultSig0 = {1, 2, 18, 102, 301, 318}
-        # NJOY 2012:
-        #mtsAtMultSig0 = {1, 2, 18, 102, 301, 318}
-        #mtsAtMultSig0 |= {i for i in range(51,91+1)}
+        # NJOY 2012 -- 2016:
+        mtsAtMultSig0 |= {i for i in range(51,91+1)}
         if mt in mtsAtMultSig0:
             return maxNumSig0
         else:
@@ -2181,6 +2180,7 @@ def write_pdt_xs(filePath, data, temperature, format='csr', whichXS='all', fromF
         if (6,18) in mfmts:
             # Add in cross sections for prompt fission spectrum, prod. Fission matrix is store as MT 2518
             numXS += 2
+            numXfer += 1
         if (5,455) in mfmts:
             # Add decayConst and delayedChi for delay fission neutrons
             # Both are regarded as 1D xs (MF 3)
@@ -2193,7 +2193,7 @@ def write_pdt_xs(filePath, data, temperature, format='csr', whichXS='all', fromF
         numXS = 2
         numXfer = 0
     else:
-        # Include flux, total XS, and combined scattering matrix by default. Fission matrix no included
+        # Include flux, total XS, and combined scattering matrix by default. Fission matrix too
         numXS = 2
         numXfer = 0
         if (6,1) in mfmts:
@@ -2210,7 +2210,9 @@ def write_pdt_xs(filePath, data, temperature, format='csr', whichXS='all', fromF
         if (6,18) in mfmts and (5,455) in mfmts:
             # If has both prompt and delayed neutron information, compute and add steady-state nu and chi
             numXS += 2
-        if whichXS.lower().strip() in 'invel' and (3,259) in mfmts:
+            numXfer += 1 # Fission matrix
+        if (3,259) in mfmts:
+            #if whichXS.lower().strip() in 'invel' and (3,259) in mfmts:
             # Include the inverse velocity XS, if available
             numXS += 1
         if whichXS.lower().strip() in 'abs':
@@ -2279,10 +2281,10 @@ def write_pdt_xs(filePath, data, temperature, format='csr', whichXS='all', fromF
             mtsForMF3 = [18]
         if whichXS.lower().strip() in 'all':
             mtsForMF3 = [mt for (mf,mt) in sorted(mfmts) if (mf == 3 and mt != 1)]
-        elif whichXS.lower().strip() in 'invel':
+        if True or whichXS.lower().strip() in 'invel':
             if (3,259) in mfmts:
                 mtsForMF3.append(259)
-        elif whichXS.lower().strip() in 'abs':
+        if whichXS.lower().strip() in 'abs':
             # The elastic scattering XS has already been printed, so don't print twice
             if (3,4) in mfmts:
                 mtsForMF3.append(4)
@@ -2306,7 +2308,7 @@ def write_pdt_xs(filePath, data, temperature, format='csr', whichXS='all', fromF
             xs = data['rxn'][(6,18)]['promptProd']
             fid.write('MT {0}\n'.format(pdtMT))
             fid.write(multiline_string(xs, 20, 5, 12))
-            # write total fission transfer matrix (chi dot nusigf)
+            # write total prompt fission transfer matrix (chi dot nusigf)
             pdtMT = 2518
             xs = data['rxn'][(6,18)]['FissionMatrix']
             fid.write('MT {0}, Moment {1}\n'.format(pdtMT, 0))

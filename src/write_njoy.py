@@ -406,10 +406,11 @@ def create_thermr_input(deck, dat, index, tapeENDFThermalIn, tapePENDFIn, tapePE
     numAtom = get_num_atoms_in_molecule(inelasticMT)
     deck.append(['thermr'])
     deck.append((tapeENDFThermalIn, tapePENDFIn, tapePENDFOut))
-    # For NJOY 2012, before numAtom, insert iform (probably should be 0).
-    # NB NJOY2012 messes up the output of the thermal data
-    # in the GENDF file, which messes up Readgroupr.py
-    deck.append((matThermal, dat.mat, dat.numAngles, len(dat.thermList), inelasticOpt, elasticOpt, numAtom, inelasticMT, 1))
+    # For NJOY 2016, before numAtom, insert iform (probably should be 0).
+    # NB NJOY2016 messes up the output of the thermal data
+    # in the GENDF file, which messes up Readgroupr.py (07/19/2017: Think I fixed it earlier?)
+    #deck.append((matThermal, dat.mat, dat.numAngles, len(dat.thermList), inelasticOpt, elasticOpt, numAtom, inelasticMT, 1))
+    deck.append((matThermal, dat.mat, dat.numAngles, len(dat.thermList), inelasticOpt, elasticOpt, 0, numAtom, inelasticMT, 1))
     deck.append(dat.thermList)
     deck.append((dat.thermrTol, dat.Emax))
 
@@ -642,7 +643,7 @@ def print_njoy_file(filePath, deck):
 
 def write_job_file(filePath, fName, dirrs):
     with open(filePath, 'w') as fid:
-        for dirr in dirrs:
+        for dirr in sorted(set(dirrs)):
             fid.write("echo 'Running {0}'\n".format(dirr))
             fid.write('cd {0}\n'.format(dirr))
             fid.write('{0}\n'.format(fName))
@@ -695,7 +696,7 @@ class NJOYTape():
 
 
 def get_temporary_tapes_pendf(tapes, endfThermalTapeList, numThermals):
-    tapeNumsToRemove = [tapes.endf, tapes.bendf, tapes.reconrOut, tapes.broadrOut, tapes.unresrOut, tapes.pendfOutASCII]
+    tapeNumsToRemove = [tapes.endf, tapes.bendf, tapes.reconrOut, tapes.broadrOut, tapes.unresrOut, tapes.pendfOutASCII, tapes.heatrOut]
     if numThermals:
         tapeNumsToRemove.append(tapes.thermrOutA)
     if numThermals > 1:
@@ -790,6 +791,7 @@ class NJOYDat():
         # self.Emax = 2.9
         #self.Emax = 3.3 # works with wiggle room for SHEM-361 and edits-12
         #self.Emax = 3.9 # does not work for ""
+        # NB: For T > 3000 K, Emax is scaled up by (T/3000) automatically
         self.Emax = 3.6 # works for ""
         #
         # GROUPR
@@ -806,7 +808,7 @@ class NJOYDat():
         self.legendreOrder = legendreOrder
         #
         # PURR
-        self.usePURR = usePURR 
+        self.usePURR = usePURR
         self.numProbBins = 20
         self.numLadders = 50
         #
@@ -816,12 +818,12 @@ class NJOYDat():
         # Thermal ACE
         self.numMix = 1 #True except for BeO or C6H6 (Benzene)
         self.numThermalAceBins = 128
-        self.emaxThermalAce = 1000.
+        self.emaxThermalAce = 1000. # eV (default)
         # ZAIDs for which the thermal ACE treatment applies
         self.ZAIDs = []
 
 def get_elasticMT(inelasticMT):
-    # From Table 25 in NJOY2012 manual (ref: njoy2012 in materials_utilities.py)
+    # From Table 25 in NJOY2016 manual (ref: njoy2016 in materials_utilities.py)
     if inelasticMT in [222, 228, 227]:
         return 0
     else:
@@ -829,7 +831,7 @@ def get_elasticMT(inelasticMT):
 
 def get_elastic_coherence(inelasticMT):
     # 0: coherent elastic (or no data); 1: incoherent elastic
-    # From Table 4 in NJOY2012 manual
+    # From Table 4 in NJOY2016 manual
     if inelasticMT in [223, 225, 235]:
         return 1
     else:
@@ -854,7 +856,10 @@ def get_inelastic_option(inelasticMT):
         return 1
     else:
         # Read S(alpha, beta)
-        return 4
+        # For NJOY 2016
+        return 2
+        # For NJOY 99
+        #return 4
     #else:
     #    return 0
 

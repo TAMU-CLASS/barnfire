@@ -63,6 +63,8 @@ def get_endf_file(Z, A, endfDirr, verbosity=False):
         if A // 400 > 0:
             metastableStr = 'm1'
         webLocation = 'http://t2.lanl.gov/nis/data/data/ENDFB-VII.1-neutron/{0}/{1}{2}'.format(sym, effA, metastableStr)
+        # FOR TOMMY
+        #webLocation = 'http://t2.lanl.gov/nis/data/data/ENDFB-VII-neutron/{0}/{1}{2}'.format(sym, effA, metastableStr)
         if verbosity:
             print 'Downloading {0} from {1} to {2}'.format(outname, webLocation, outDirr)
         os.system('wget {0} -O {1}'.format(webLocation, outPath))
@@ -79,7 +81,7 @@ def get_thermal_endf_files(ZASabList, dirDict, verbosity=False):
     ZSabSet = {(Z,Sab) for (Z,A,Sab) in ZASabList}
     for (Z, Sab) in sorted(ZSabSet):
         get_thermal_endf_file(Z, Sab, endfDirr, verbosity)
-        
+
 def get_thermal_endf_file(Z, Sab, endfDirr, verbosity=False):
     '''Download bound thermal ENDF file from BNL'''
     if Sab in util.get_non_bound_names():
@@ -103,7 +105,7 @@ def get_thermal_endf_file(Z, Sab, endfDirr, verbosity=False):
         os.remove('{0}'.format(tempOutPath))
     elif verbosity > 2:
         print '{0} already downloaded in {1}'.format(outname, outDirr)
-    
+
 def get_pot_scat_xs_wrapper(Z, A, endfDirr, verbosity=False):
     '''Look in the ENDF file for the potential scattering XS'''
     # Metastable isomeric states use the groundstate A + 400

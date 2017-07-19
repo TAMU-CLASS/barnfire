@@ -61,6 +61,9 @@ def resolve_group_structure(inputDat, inputGrid=None):
         eGrid = add_group_boundaries(newBoundaries, eGrid)
         # Overwrite group boundaries for resolved regions
         eGrid = overwrite_group_boundaries(startE, stopE, desiredGroups, eGrid, verbosity)
+    elif desiredGroups == 0:
+        if verbosity:
+            print 'Not inserting resonance groups.'
     else:
         print 'Warning! Number of desired groups is too small compared to the existing group structure.'
     # Save new energy grid

@@ -233,7 +233,7 @@ def print_mcnp_material_inputs(materials, njoyTDict, verbosity=False):
                 print 'mt{}'.format(i)
             for strr in sorted(mcnpThermalStrings):
                 print strr
-        
+
 ###############################################################################
 def get_group_boundaries(inputDict, verbosity):
     groupOpt = inputDict['groupopt']
@@ -275,7 +275,7 @@ def get_group_boundaries(inputDict, verbosity):
         parserStr += ' -I {0}'.format(filename)
         #Do not crop group structure's energy bounds inputDict['energybounds']
         #(Do we want this??)
-        parserStr += ' -e' 
+        parserStr += ' -e'
     #
     parserStr += ' -g {0}'.format(desiredGroups)
     if verbosity:
@@ -358,7 +358,7 @@ def get_allowed_njoy_temperatures():
     Tgraphite = set([296., 400., 500., 600., 700., 800., 1000., 1200., 1600., 2000.])
     #
     # Each element thermal name corresponds to a bound thermal ENDF file
-    # Use the temperature grid from that file as the allowed NJOY evaluation temperatures for 
+    # Use the temperature grid from that file as the allowed NJOY evaluation temperatures for
     # that element thermal name (aka Sab).
     allowedTDict = {
         'hh2o': Tmod,

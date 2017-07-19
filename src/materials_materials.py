@@ -46,6 +46,9 @@ def get_materials_name2function_dict():
         'h2oCold': get_cold_h2o_material,
         'h2oHot': get_hot_h2o_material,
         'graphite': get_graphite_material,
+        # T = 1eV example (for Tommy Saller)
+        'tsFUEL_STAR': get_ev_fuel_material,
+        'tsH2O_STAR': get_ev_h2o_material,
         # C5G7
         'clowMOX': get_c5g7_low_mox_material,
         'cmedMOX': get_c5g7_med_mox_material,
@@ -471,6 +474,53 @@ def get_general_hot_h2o_material(T=570., P=15.5):
     material.update_mass_density(rho)
     material.update_chord_length(0.)
     material.update_names('h2oRxtHot', 'hot light water at high pressure')
+    return material
+
+###############################################################################
+def get_ev_fuel_material(T=12000.):
+    shortName = 'hot PuU metal'
+    longName = '1 eV Pu-U metal'
+    massDensity = 30.0 #g/cc
+    fuelRadius = 10.0 #cm
+    temperature = T #K
+    thermalOpt = 'free'
+    uAtomFractionsDict = {235: 0.05, 238: 0.95}
+    puAtomFractionsDict = {239: 0.97784115666, 240: 0.0205601536476}
+    elemAtomFracDict = {'U': 0.85, 'Pu': 0.15}
+    #
+    chordLength = util.calc_chord_length(fuelRadius)
+    symDict, ZList, ZAList = get_all_isotopes(elemAtomFracDict)
+    abundanceDict = lookup_natl_abundances(ZAList)
+    override_abundances(ZAList, abundanceDict, uAtomFractionsDict, 'U')
+    override_abundances(ZAList, abundanceDict, puAtomFractionsDict, 'Pu')
+    #
+    material = Material(
+        shortName=shortName, longName=longName,
+        temperature=temperature, thermalOpt=thermalOpt,
+        symDict=symDict, ZList=ZList, ZAList=ZAList,
+        abundanceDict=abundanceDict, chordLength=chordLength,
+        elemAtomFracDict=elemAtomFracDict, massDensity=massDensity)
+    return material
+
+def get_ev_h2o_material(T=12000.):
+    shortName = 'hot H2O'
+    longName = '1 eV H2O'
+    massDensity = 1.0 #g/cc
+    fuelRadius = 100.0 #cm
+    temperature = T #K
+    thermalOpt = 'free'
+    elemAtomFracDict = {'H': 2, 'O': 1}
+    #
+    chordLength = util.calc_chord_length(fuelRadius)
+    symDict, ZList, ZAList = get_all_isotopes(elemAtomFracDict)
+    abundanceDict = lookup_natl_abundances(ZAList)
+    #
+    material = Material(
+        shortName=shortName, longName=longName,
+        temperature=temperature, thermalOpt=thermalOpt,
+        symDict=symDict, ZList=ZList, ZAList=ZAList,
+        abundanceDict=abundanceDict, chordLength=chordLength,
+        elemAtomFracDict=elemAtomFracDict, massDensity=massDensity)
     return material
 
 ###############################################################################
@@ -1412,7 +1462,7 @@ def get_multi_temperature_triga_graphite_material_T8():
 
 def get_multi_temperature_triga_graphite_material_T9():
     return get_multi_temperature_triga_graphite_material_Ti(9)
-    
+
 ###############################################################################
 def get_multi_temperature_depleted_triga_fuel_material_base():
     return get_depleted_triga_fuel_material()
@@ -1489,17 +1539,21 @@ def get_all_isotopes(elemDict):
         elif sym == 'Es':
             ZAList += get_Es_isotopes()
         elif sym == 'Fm':
-            ZAList += get_Fm_isotopes() 
+            ZAList += get_Fm_isotopes()
         else:
             ZAList += get_isotope_ZAs(Z)
     return symDict, ZList, ZAList
 
 def get_isotope_ZAs(Z, cutoff=0.00005):
     '''Get all isotopes with natural abundance at least cutoff for element Z.
-    nd.isotopes does not return any metastable A's.'''
-    ''' Skip isotopes with only metastable isomers'''
-    AList = [A for A in nd.isotopes[Z] if 0.0 in nd.nuclides[(Z,A)] \
-             if nd.nuc(Z, A)['abundance'].nominal_value > cutoff]
+    nd.isotopes does not return any metastable A's.
+    Skip isotopes with only metastable isomers
+    Do not include isotopes that do not have an ENDF evaluation (skip if not in nd.mats)
+    '''
+    isExcited = False
+    AList = [A for A in nd.isotopes[Z] \
+             if nd.nuc(Z, A)['abundance'].nominal_value > cutoff \
+             if (Z, A, isExcited) in nd.mats]
     return [(Z, A) for A in AList]
 
 def get_Th_isotopes():
@@ -1625,7 +1679,7 @@ def get_Fm_isotopes():
     ZAList = []
     ZAList.append((100, 255))
     return ZAList
-    
+
 
 ###############################################################################
 def lookup_natl_abundances(ZAList):
