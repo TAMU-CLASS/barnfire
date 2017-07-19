@@ -62,9 +62,8 @@ def get_endf_file(Z, A, endfDirr, verbosity=False):
         metastableStr = ''
         if A // 400 > 0:
             metastableStr = 'm1'
+        # NB: Remove the .1 to get VII.0 data from LANL
         webLocation = 'http://t2.lanl.gov/nis/data/data/ENDFB-VII.1-neutron/{0}/{1}{2}'.format(sym, effA, metastableStr)
-        # FOR TOMMY
-        #webLocation = 'http://t2.lanl.gov/nis/data/data/ENDFB-VII-neutron/{0}/{1}{2}'.format(sym, effA, metastableStr)
         if verbosity:
             print 'Downloading {0} from {1} to {2}'.format(outname, webLocation, outDirr)
         os.system('wget {0} -O {1}'.format(webLocation, outPath))

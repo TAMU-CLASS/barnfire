@@ -27,7 +27,7 @@ def get_root_directories():
     # If this fails, you probably did not export the variable ENDF:
     endfDirr = os.path.abspath(os.environ['ENDF'])
     #
-    # This directory should contain 'xnjoy', the NJOY executable:
+    # This directory should contain 'njoy', the NJOY executable:
     # If this fails, you probably did not export the variable NJOY:
     njoyDirr = os.path.abspath(os.environ['NJOY'])
     if os.path.isfile(njoyDirr):
@@ -35,7 +35,7 @@ def get_root_directories():
     #
     dirDict['head'] = headDirr
     dirDict['scratch'] = scratchDirr
-    dirDict['endf'] = endfDirr 
+    dirDict['endf'] = endfDirr
     dirDict['njoyBuild'] = njoyDirr
     return dirDict
 
@@ -89,9 +89,10 @@ def make_scratch_directories():
 def copy_xnjoy():
     '''Copy xnjoy to the scratch location'''
     dirDict = get_common_directories()
-    njoyExecutable = 'xnjoy'
-    inPath = os.path.join(dirDict['njoyBuild'], njoyExecutable)
-    outPath = dirDict['njoyInstall']
+    njoyExecutableIn = 'njoy'
+    njoyExecutableOut = 'xnjoy'
+    inPath = os.path.join(dirDict['njoyBuild'], njoyExecutableIn)
+    outPath = os.path.join(dirDict['njoyInstall'], njoyExecutableOut)
     try_cp(inPath, outPath)
 
 def make_endf_directory():
@@ -148,13 +149,13 @@ def try_cp(inPath, outPath):
             shutil.copy2(inPath, outPath)
     except OSError:
         pass
-        
+
 def try_make_exe(filename):
     try:
         st = os.stat(filename)
         os.chmod(filename, st.st_mode | stat.S_IEXEC)
     except OSError:
-        pass    
+        pass
 
 def copy_contents(sourceDirr, destinationDirr):
     sourceFiles = os.listdir(sourceDirr)

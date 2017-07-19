@@ -92,14 +92,27 @@ git clone https://github.com/attom/nuclide-data.git
 cd ..
 ```
 
+* Second, download and make NJOY2016:
+
+```
+#!bash
+
+git clone https://github.com/njoy/NJOY2016.git
+mkdir NJOY2016-build
+cd NJOY2016-build
+cmake -DCMAKE_BUILD_TYPE=Release ../NJOY2016
+make
+export NJOY=`pwd`
+cd ..
+```
+
 * Then, be sure all the dependencies are met. IAPWS can be installed with `sudo pip install iapws` If you install it yourself, be sure that Python can find it. Specifically, be sure [materials\_materials.py](src/materials_materials.py) can find it.
 
 * Change your `.bashrc`, `.cshrc`, etc. file to export the variables `SCRATCH_BARN`, `ENDF`, and `NJOY`
 
   * `SCRATCH_BARN` will house your output cross sections and other temporary files
   * `ENDF` will be where the raw ENDF/B and thermal ENDF/B files are housed
-  * `NJOY` points to the directory with `xnjoy` (Currently, NJOY99 patched to v364 is required)
-
+  * `NJOY` points to the directory with `njoy` (If using NJOY2012, rename binary to `njoy` and use v82 or later)
 
 * Peruse [directories.py](src/directories.py) and be sure it is pointing to the proper locations on your system
 
