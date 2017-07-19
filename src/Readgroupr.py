@@ -352,6 +352,7 @@ def merge_data_prompt_fission_matrix(data, xsDict):
     #lowEnergySpectrum is indexed by (groupTo)
     #highEnergyMatrix is indexed by (groupFrom, groupTo)
     #highEnergyMatrix applies to groups 0 through highestHighEnergyGroup (inclusive)
+    #FissionMatrix is indexed by (groupFrom, groupTo)
 
 def merge_data_delayed_fission_xs(data, xsDict):
     '''Merge xsDict into data. Overwrite delayed fission chi, nu, and decay constant'''
@@ -570,9 +571,9 @@ def read_prompt_fission_matrix_body(fid, xsDict, verbosity=0):
     FissionMatrix = np.zeros((numGroups, numGroups))
     FissionMatrix[0:lowestHighEnergyGroup, :] = np.outer(lowEnergyProd, lowEnergySpectrum)
     FissionMatrix[lowestHighEnergyGroup:numGroups, :] = highEnergyMatrix
-    # Compute total fission source = F'*phi
+    # Compute prompt fission source = F'*phi
     F_phi = np.dot(flux, FissionMatrix)
-    # prompt Chi is normalized total fission source
+    # prompt Chi is normalized promt fission source
     promptChi = F_phi/np.sum(F_phi)
     # prompt nu*sig_f (Prod) is row sum of F
     promptProd = np.sum(FissionMatrix, 1)
@@ -1258,7 +1259,8 @@ def get_gamma_transfer_list():
 
 def get_mts_for_combining():
     '''
-    Use MT 2501 for the sum of all transfer reactions except fission.
+    Use MT 2501 for the sum of all transfer reactions except fission
+    (new versions of PDT use MT 2519 instead of MT 2501)
     One (and only one) scattering source should be added to 2501 at the very end.
     Except in the case of Be (see manual), the thermal scattering xfer matrix
        should overwrite the existing 2501 values and the total xs should be updated
@@ -1266,6 +1268,7 @@ def get_mts_for_combining():
     '''
     combineTransferList = [2, 16, 17, 22, 28, 37]
     for i in range(51, 91+1):
+        # Inelasti scatterings
         combineTransferList.append(i)
     return combineTransferList
 
@@ -1295,7 +1298,7 @@ def get_pdt_mt_list(endfMTList, neutronTransferList, gammaTransferList):
     pdtMTList.append((1018, 'chi', 'nFissionSpectrum'))
     pdtMTList.append((1452, 'nufission', 'nNuFission'))
     pdtMTList.append((2055, 'chid', 'nDelayedFissionSpectrum'))
-    pdtMTList.append((2501, 'allxfer', 'combinedNonFissionTransfer'))
+    pdtMTList.append((2501, 'xfernofission', 'combinedNonFissionTransfer'))
     #Append valid neutron xfer matrices
     for endfMT in endfMTList:
         mt, shortName, longName = endfMT
@@ -1455,7 +1458,7 @@ def get_pdt_mt(mf, mt):
 ####################################################################################
 def print_mts(pdtMTList, combineTransferList, validMTsForMF3, validMTsForMF5, validMTsForMF6):
     print 'PDT rxns'
-    for pdtMT in pdtMTList:
+    for pdtMT in sorted(pdtMTList):
         print pdtMT
     print 'Combine these rxns into 2501'
     print combineTransferList
@@ -2163,7 +2166,7 @@ def convert_to_scipy_sparse_scat_matrix(data, format='csr'):
                     (vals_holess[moment, :], indices_holess, indptr_holess), shape=(numGroups, numGroups)).tocsr())
         rxn['xsOut'] = xs
 
-def write_pdt_xs(filePath, data, temperature, format='csr', whichXS='all', fromFile='barnfire'):
+def write_pdt_xs(filePath, data, temperature, format='csr', whichXS='usual', fromFile='barnfire'):
     '''Write a PDT XS from a xs dat. CSR/CSC format will print the matrices by row/column (incident/exiting group). whichXS determines what is written. "all" means all xs are written. "total" means only the flux and total cross section are written. Anything else means the normal PDT cross sections are written.'''
     timeStr = datetime.strftime(datetime.now(), '%c')
     mfmts = data['mfmts']
@@ -2171,10 +2174,14 @@ def write_pdt_xs(filePath, data, temperature, format='csr', whichXS='all', fromF
     numLegMoments = data['numLegMoments']
     xsType = 'multigroup' # Not always true
     groupBoundaries = data['groupBdrs']
-    if whichXS.lower().strip() in 'all':
-        #Include all XS except the combined scattering matrix
+    if whichXS.lower().strip() in ['separate', 'all']:
         numXS = np.sum([1 for (mf, mt) in mfmts if mf == 3])
-        numXfer = np.sum([1 for (mf, mt) in mfmts if (mf == 6 and mt != 1)])
+        if whichXS.lower().strip() in 'separate':
+            # separate - Include all XS except the combined scattering matrix
+            numXfer = np.sum([1 for (mf, mt) in mfmts if (mf == 6 and mt != 1)])
+        else:
+            # all - Include all XS
+            numXfer = np.sum([1 for (mf, mt) in mfmts if (mf == 6)])
         # The flux counts as a cross section
         numXS += 1
         if (6,18) in mfmts:
@@ -2193,15 +2200,19 @@ def write_pdt_xs(filePath, data, temperature, format='csr', whichXS='all', fromF
         numXS = 2
         numXfer = 0
     else:
-        # Include flux, total XS, and combined scattering matrix by default. Fission matrix too
+        # Include flux, total XS, and combined scattering matrix by default. Fission matrix is also included
         numXS = 2
         numXfer = 0
         if (6,1) in mfmts:
             numXfer += 1
         if (6,18) in mfmts:
             numXS += 2
+            numXfer += 1
         if (3,18) in mfmts:
             # add MT 18
+            numXS += 1
+        if (3, 455) in mfmts:
+            # add MT 455 (delayed nu)
             numXS += 1
         if (5,455) in mfmts:
             # Add decayConst and delayedChi for delay fission neutrons
@@ -2210,9 +2221,8 @@ def write_pdt_xs(filePath, data, temperature, format='csr', whichXS='all', fromF
         if (6,18) in mfmts and (5,455) in mfmts:
             # If has both prompt and delayed neutron information, compute and add steady-state nu and chi
             numXS += 2
-            numXfer += 1 # Fission matrix
+            numXfer += 1 # Fission matrix (ATT: already included?)
         if (3,259) in mfmts:
-            #if whichXS.lower().strip() in 'invel' and (3,259) in mfmts:
             # Include the inverse velocity XS, if available
             numXS += 1
         if whichXS.lower().strip() in 'abs':
@@ -2258,7 +2268,7 @@ def write_pdt_xs(filePath, data, temperature, format='csr', whichXS='all', fromF
         fid.write(multiline_string(xs, 20, 5, 12))
         # Write total
         mf, mt = (3,1)
-        if whichXS.lower().strip() in 'all':
+        if whichXS.lower().strip() in 'separate':
             xs = data['rxn'][(mf,mt)]['xsOut']
         else:
             xs = data['rxn'][(mf,mt)]['xsTherm']
@@ -2279,11 +2289,12 @@ def write_pdt_xs(filePath, data, temperature, format='csr', whichXS='all', fromF
         mtsForMF3 = []
         if (3,18) in mfmts:
             mtsForMF3 = [18]
-        if whichXS.lower().strip() in 'all':
+        if (3,455) in mfmts:
+            mtsForMF3.append(455)
+        if whichXS.lower().strip() in ['separate', 'all']:
             mtsForMF3 = [mt for (mf,mt) in sorted(mfmts) if (mf == 3 and mt != 1)]
-        if True or whichXS.lower().strip() in 'invel':
-            if (3,259) in mfmts:
-                mtsForMF3.append(259)
+        if (3,259) in mfmts:
+            mtsForMF3.append(259)
         if whichXS.lower().strip() in 'abs':
             # The elastic scattering XS has already been printed, so don't print twice
             if (3,4) in mfmts:
@@ -2349,8 +2360,10 @@ def write_pdt_xs(filePath, data, temperature, format='csr', whichXS='all', fromF
             chi_ss = data['rxn'][(3,2018)]['xsOut']
             fid.write(multiline_string(chi_ss, 20, 5, 12))
         # Write transfer matrices (sparse matrices)
-        if whichXS.lower().strip() in 'all':
-            mtsForMF6 = [mt for (mf,mt) in sorted(mfmts) if (mf == 6 and mt != 18 and mt != 1)]
+        if whichXS.lower().strip() in 'separate':
+            mtsForMF6 = [mt for (mf,mt) in sorted(mfmts) if (mf == 6 and mt != 1)]
+        elif whichXS.lower().strip() in 'all': # ATT ???
+            mtsForMF6 = [mt for (mf,mt) in sorted(mfmts) if (mf == 6 and mt != 18)]
         else:
             mtsForMF6 = [mt for (mf,mt) in sorted(mfmts) if (mf == 6 and mt == 1)]
         mf = 6
@@ -2455,7 +2468,7 @@ def define_input_parser():
     parser.add_argument('-M', '--mf6list', help='List of MTs to keep for MF 6. MT of 0 means keep all available. Use ENDF numbering.', nargs='*', type=int, default=[0])
     parser.add_argument('-t', '--thermallist', help='List of thermal MTs to keep. Use unofficial ENDF numbering.', type=int, nargs='*', default=[])
     parser.add_argument('-f', '--format', help='Output format for scattering matrices column or row major).', choices=['csr', 'csc'], default='csr')
-    parser.add_argument('-p', '--printopt', help='Which XS to print. Usual prints selected XS and the combined transfer matrix, invel prints the usual in addition to the inverse velocity, abs prints the one-dimensional elastic and inelastic scattering cross sections so PDT can correctly calculate the net absorption cross section, total just prints the flux and total XS. All prints all XS and transfer matrices except the combined transfer matrix. None prints no PDT XS.', choices=['usual', 'invel', 'abs', 'total', 'all', 'none'], default='usual')
+    parser.add_argument('-p', '--printopt', help='Which XS to print. Usual prints selected XS and the combined transfer matrix; abs prints the one-dimensional elastic and inelastic scattering cross sections so PDT can correctly calculate the net absorption cross section; total just prints the flux and total XS; separate prints all XS and transfer matrices except the combined transfer matrix; all prints everything; none prints no PDT XS.', choices=['none', 'total', 'usual', 'abs', 'separate', 'all'], default='usual')
     return parser
 
 ####################################################################################
