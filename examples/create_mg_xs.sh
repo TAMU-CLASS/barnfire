@@ -63,3 +63,11 @@ cd $srcdir
 cd $scriptdir
 # The result should be a list of .data files in $SCRATCH_BARN/xs/pdtxs
 
+# Step 11: Run NJOY to generate the ACE files (can be done after step 2)
+cd $SCRATCH_BARN/xs
+./RunAce.sh
+# Step 12: Copy ACE files and create xsdir
+cd ace/xdata
+./copyAce.sh
+cd $scriptdir
+# The result should be ACE files and xsdir (tells MCNP where the ACE files are) in $SCRATCH_BARN/xs/ace/xdata

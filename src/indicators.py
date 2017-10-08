@@ -207,9 +207,9 @@ def do_all(inputDict):
             materials.append(mat.get_triga_grid_plate_material())
             materials.append(mat.get_triga_lead_material())
     elif materialOpt == 'ctrigafuel':
-        materials.append(mat.get_depleted_triga_fuel_material())
+        materials.append(mat.get_ctriga_fuel_material())
         if workOpt == 'wgt':
-            materials.append(mat.get_triga_clad_material())
+            materials.append(mat.get_ctriga_clad_material())
             materials.append(mat.get_triga_zirconium_material())
             materials.append(mat.get_triga_graphite_material())
             materials.append(mat.get_triga_borated_graphite_material())
@@ -242,6 +242,19 @@ def do_all(inputDict):
             materials.append(mat.get_triga_air_material())
             materials.append(mat.get_triga_grid_plate_material())
             materials.append(mat.get_triga_lead_material())
+    elif materialOpt == 'CASL':
+        materials.append(mat.get_CASL_fuel_p4_211_material())
+        materials.append(mat.get_CASL_fuel_p4_262_material())
+        materials.append(mat.get_CASL_fuel_p5_31_material())
+        if workOpt == 'wgt':
+            materials.append(mat.get_CASL_cladding_p5_material())
+            materials.append(mat.get_CASL_pyrex_p5_material())
+            materials.append(mat.get_CASL_AIC_p5_material())
+            materials.append(mat.get_CASL_B4C_p5_material())
+            materials.append(mat.get_CASL_moderator_p5_material())
+            materials.append(mat.get_CASL_gas_p5_material())
+            materials.append(mat.get_CASL_coreplates_material())
+            materials.append(mat.get_CASL_StainlessSteel_p5_material())
     elif materialOpt == 'deb':
         materials.append(mat.get_bruss_enriched_rod_fuel_material())
     else:
@@ -1303,7 +1316,7 @@ def define_input_parser():
     parser.add_argument('-G', '--groupopt', help="Base coarse group structure file head. If the flux work option is used, the output group structure is the base coarse group structure with the RRR overwritten by the hyperfine group structure. Some examples include 'c5g7', 'scale-44', and 'res-N' where N=1,..9. Always looks in default directory of makegroups.", default=defaults['groupopt'])
     parser.add_argument('-r', '--resolution', help='Resolution to use for the pointwise flux calculations', type=int, choices=range(11), default=defaults['resolution'])
     parser.add_argument('-E', '--energyspacing', help='The maximum energy jump in the final grid is equal to this factor multiplied by a jump normalization based on downscattering distance off a heavy nucleus.', type=float, default=defaults['energyspacing'])
-    parser.add_argument('-m', '--materialopt', help=" Unless 'manual' is used, specifies a set of materials to use. If 'manual' is used, give a space-separated list of material names in 'listmaterials'.", choices=['3','4','5','c5g7', 'graphite', 'iron', 'kpin', 'kenrichedpin', 'kcladpin', 'kpin2d', 'kenrichedpin2d', 'kmoxpin2d', 'kmoxenrichedpin2d', 'trigafuel', 'ctrigafuel', 'ctrigafuel_0', 'trigamore', 'deb', 'manual'], default=defaults['materialopt'])
+    parser.add_argument('-m', '--materialopt', help=" Unless 'manual' is used, specifies a set of materials to use. If 'manual' is used, give a space-separated list of material names in 'listmaterials'.", choices=['3','4','5','c5g7', 'graphite', 'iron', 'kpin', 'kenrichedpin', 'kcladpin', 'kpin2d', 'kenrichedpin2d', 'kmoxpin2d', 'kmoxenrichedpin2d', 'trigafuel', 'ctrigafuel', 'ctrigafuel_0', 'trigamore', 'CASL', 'deb', 'manual'], default=defaults['materialopt'])
     parser.add_argument('-i', '--indicatormaterials', dest='listmaterials', help="When manual 'materialopt' is used, specify the materials to use.", nargs='+', default=defaults['listmaterials'], choices=mat.get_materials_name2function_dict().keys())
     parser.add_argument('-t', '--temperaturedependence', help="If specified, use the temperature in the PENDF file that corresponds to the temperature of the material (as specified in 'materials_materials.py'). If this temperature does not exist, an error is thrown. If not specified, the first temperature in the PENDF file is used. This flag is added for 'materialopt' of '3'.", action='store_true', default=False)
     parser.add_argument('-M', '--meshname', help="The energy mesh on which the output fluxes are constructed. {r} is replaced by the resolution. If the 'flux' workopt is used, the mesh file is written to. Else, is it read from. If no file type is specified, '.txt' is used. If no directory is specified, the 'energyDat' directory from directories is used.", default=defaults['meshname'])

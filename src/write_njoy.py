@@ -23,7 +23,7 @@ def create_thermal_ace_njoy_script(dat, tapes):
     endfDirr = dirDict['endf']
     pendfRootDirr = dirDict['pendf']
     aceRootDirr = dirDict['ace']
-    njoyPath = os.path.join(dirDict['njoyInstall'], 'xnjoy')
+    njoyPath = os.path.join(dirDict['njoyInstall'], 'xnjoy_thermr') #using the latest patched NJOY2012
     #
     pendfDirr = os.path.join(pendfRootDirr, str(dat.nuclideName))
     aceDirr = os.path.join(aceRootDirr, str(dat.thermalFileName))
@@ -79,6 +79,7 @@ def create_thermal_ace_njoy_script(dat, tapes):
         deck.append(["./xnjoy<input"])
     deck.append(["echo 'Cleaning up and saving ACE files'"])
     aceFiles = []
+    aceCERTDir = '/scratch/yunhuang/barnfire/xs/cert_ace'
     for i in range(numTemperatures):
         tapeAceOut, tapeXSDirOut, viewrOut = tapes.aceStart + i, tapes.aceXSDirStart + i, tapes.viewrAceStart + i
         aceFile = aceFileTemplate.format(H=dat.thermalFileName, s=i, e=dat.aceExt)
@@ -87,6 +88,8 @@ def create_thermal_ace_njoy_script(dat, tapes):
         plotName = 'p_xs_{}.pdf'.format(aceFile)
         deck.append(['cp -f tape{0:02g} {1}'.format(tapeAceOut, aceFile)])
         deck.append(['cp -f tape{0:02g} {1}'.format(tapeXSDirOut, aceFileDir)])
+        deck.append(['cp -f {0} {1}/'.format(aceFile, aceCERTDir)])
+        deck.append(['cp -f {0} {1}/'.format(aceFileDir, aceCERTDir)])
         deck.append(['ps2pdf tape{0:02g} {1}'.format(viewrOut, plotName)])
     deck.append(['rm -f xnjoy'])
     tapeNamesToRemove = ' '.join(get_temporary_tapes_ace(tapes, pendfOutTape, endfNonFreeThermalTapeList, numTemperatures, False))
@@ -106,7 +109,7 @@ def create_njoy_script(dat, tapes):
     pendfRootDirr = dirDict['pendf']
     gendfRootDirr = dirDict['gendf']
     aceRootDirr = dirDict['ace']
-    njoyPath = os.path.join(dirDict['njoyInstall'], 'xnjoy')
+    njoyPath = os.path.join(dirDict['njoyInstall'], 'xnjoy_thermr')
     #
     pendfDirr = os.path.join(pendfRootDirr, str(dat.nuclideName))
     gendfDirr = os.path.join(gendfRootDirr, str(dat.nuclideName))
@@ -144,6 +147,9 @@ def create_njoy_script(dat, tapes):
     gendfPath = os.path.join(gendfDirr, gendfFile)
     relPathPendfGendf = os.path.relpath(pendfPath, gendfDirr)
     readgrouprPath = os.path.join(pyDirr, 'Readgroupr.py')
+    #
+    matxsFile = 'matxs' 
+    matxsDir = '/scratch/yunhuang/barnfire/xs/cert_matxs'
     #
     aceScriptFile = 'runNJOY.sh'
     aceScriptPath = os.path.join(aceDirr, aceScriptFile)
@@ -185,7 +191,7 @@ def create_njoy_script(dat, tapes):
     try_mkdir(pendfDirr)
     print_njoy_file(pendfScriptPath, deck)
 
-    # Script to run NJOY from PENDF to GENDF:
+    # Script to run NJOY from PENDF to MATXS:
     doPlotr = False
     deck = []
     deck.append(["#! /usr/bin/env bash"])
@@ -199,26 +205,31 @@ def create_njoy_script(dat, tapes):
     create_moder_input(deck, dat, tapes.endf, tapes.bendf)
     dat.hasDelayedNu, dat.hasDelayedChis = hasDelayed(endfPath)
     create_groupr_input(deck, dat, tapes.bendf, pendfOutTape, tapes.grouprIn, tapes.grouprOut)
-    create_moder_input(deck, dat, tapes.grouprOut, tapes.gendfOut)
+    create_moder_input(deck, dat, tapes.grouprOut, tapes.gendfOut)  # get GENDF in ASCII for record
+    create_matxsr_input(deck, dat, tapes.gendfOut, tapes.gaminrOut, tapes.matxsOut)
+    # It seems MODER is not needed after MATXSR
+    #  create_moder_input(deck, dat, tapes.matxsOut, tapes.gendfOut)
     if False and dat.numGroups <= 200:
         doPlotr = True
         plotNames = create_plotr_inputs(deck, dat, tapes.gendfOut, tapes.plotrOut, tapes.viewrOut)
     deck.append(['stop'])
     deck.append(["EOF"])
     deck.append(["./xnjoy<input"])
-    deck.append(["echo 'Cleaning up and saving GROUPR file'"])
+    deck.append(["echo 'Cleaning up, saving GROUPR and MATXS file'"])
     if doPlotr:
         for plotName, viewrOut in zip(plotNames, tapes.viewrOut):
             deck.append(['ps2pdf tape{0:02g} {1}'.format(viewrOut, plotName)])
     deck.append(['cp -f tape{0:02g} {1}'.format(tapes.gendfOut, gendfFile)])
+    deck.append(['cp -f tape{0:02g} {1}'.format(tapes.matxsOut, matxsFile)])
+    deck.append(['cp -f matxs {0}/{1}.dat'.format(matxsDir, dat.nuclideName)])
     deck.append(['rm -f xnjoy'])
     tapeNamesToRemove = ' '.join(get_temporary_tapes_gendf(tapes, pendfOutTape, doPlotr))
     deck.append(['rm -f {0}'.format(tapeNamesToRemove)])
     optionalComment = ''
     if True and dat.numGroups > 200:
         optionalComment = '#'
-    deck.append(["{0}echo 'Reading in XS file and pickling for future use'".format(optionalComment)])
-    deck.append(['{0} {1} -I {2} -p all -f csc'.format(optionalComment, readgrouprPath, gendfFile)])
+ #   deck.append(["{0}echo 'Reading in XS file and pickling for future use'".format(optionalComment)])
+ #   deck.append(['{0} {1} -I {2} -p all -f csc'.format(optionalComment, readgrouprPath, gendfFile)])
     try_mkdir(gendfDirr)
     print_njoy_file(gendfScriptPath, deck)
 
@@ -252,6 +263,7 @@ def create_njoy_script(dat, tapes):
         deck.append(["./xnjoy<input"])
     deck.append(["echo 'Cleaning up and saving ACE files'"])
     aceFiles = []
+    aceCERTDir = '/scratch/yunhuang/barnfire/xs/cert_ace'
     for i in range(numTemperatures):
         tapeAceOut, tapeXSDirOut, viewrOut = tapes.aceStart + i, tapes.aceXSDirStart + i, tapes.viewrAceStart + i
         aceFile = aceFileTemplate.format(A=dat.A, Z=dat.Z, s=i, e=dat.aceExt)
@@ -260,6 +272,8 @@ def create_njoy_script(dat, tapes):
         plotName = 'p_xs_{}.pdf'.format(aceFile)
         deck.append(['cp -f tape{0:02g} {1}'.format(tapeAceOut, aceFile)])
         deck.append(['cp -f tape{0:02g} {1}'.format(tapeXSDirOut, aceFileDir)])
+        deck.append(['cp -f {0} {1}/'.format(aceFile, aceCERTDir)])
+        deck.append(['cp -f {0} {1}/'.format(aceFileDir, aceCERTDir)])
         deck.append(['ps2pdf tape{0:02g} {1}'.format(viewrOut, plotName)])
     deck.append(['rm -f xnjoy'])
     tapeNamesToRemove = ' '.join(get_temporary_tapes_ace(tapes, pendfOutTape, [], numTemperatures, True))
@@ -357,7 +371,7 @@ def create_reconr_input(deck, dat, tapeENDFIn, tapePENDFOut):
     deck.append((tapeENDFIn, tapePENDFOut))
     deck.append(("'pendf tape for " + dat.nuclideName + " from " + dat.endfName + "'",'/'))
     deck.append((dat.mat, ncards, '/'))
-    deck.append((dat.errTol, 0, dat.errTolMax, '/'))
+    deck.append((dat.errTol, '/'))
     deck.append(("'" + dat.nuclideName + " from " + dat.endfName + " tape'",'/'))
     deck.append(("'processed by the njoy nuclear data processing system'",'/'))
     deck.append(("'see original " + dat.endfName + " tape for details of evaluation'",'/'))
@@ -409,7 +423,7 @@ def create_thermr_input(deck, dat, index, tapeENDFThermalIn, tapePENDFIn, tapePE
     # For NJOY 2012, before numAtom, insert iform (probably should be 0).
     # NB NJOY2012 messes up the output of the thermal data
     # in the GENDF file, which messes up Readgroupr.py
-    deck.append((matThermal, dat.mat, dat.numAngles, len(dat.thermList), inelasticOpt, elasticOpt, numAtom, inelasticMT, 1))
+    deck.append((matThermal, dat.mat, dat.numAngles, len(dat.thermList), inelasticOpt, elasticOpt, dat.inelasForm, numAtom, inelasticMT, 1))
     deck.append(dat.thermList)
     deck.append((dat.thermrTol, dat.Emax))
 
@@ -546,6 +560,7 @@ def create_groupr_input(deck, dat, tapeENDFIn, tapePENDFIn, tapeGroupsIn, tapeGE
     namedRxts = []
     #
     namedRxts.append((3, '/'))
+    # inverse velocity not used for CERT
     namedRxts.append((3, 259, "'invel'", '/'))
     for mt in dat.thermalMTList:
         namedRxts.append((3,mt,"'(thermal)'",'/'))
@@ -564,7 +579,8 @@ def create_groupr_input(deck, dat, tapeENDFIn, tapePENDFIn, tapeGroupsIn, tapeGE
         # To get chi, currently need (6,18), so use this even if not including other MF6
         namedRxts.append((6, 18,"'fission'",'/'))
 
-    namedRxts = sorted(namedRxts)
+    # Sorted namedRxts will cause random string error in MATXS
+    ## namedRxts = sorted(namedRxts)
     # repeat total, elastic, fission, capture, thermal for each temperature
     toRepeat = [(3,1,"'total'",'/'), (3,2,"'elastic scat'",'/'), (3,102,"'rad capture'",'/')]
     if dat.isFissionable:
@@ -609,6 +625,8 @@ def create_groupr_input(deck, dat, tapeENDFIn, tapePENDFIn, tapeGroupsIn, tapeGE
         groupFormat.append('/')
         if rowPos != 1:
             deck.append(groupFormat)
+    if (dat.weightOpt == 4):
+        deck.append([0.4, 0.0255, 2.0e7, 8.2030E+05])
     for rxt in namedRxts:
         deck.append(rxt)
     deck.append((0, '/'))
@@ -617,6 +635,25 @@ def create_groupr_input(deck, dat, tapeENDFIn, tapePENDFIn, tapeGroupsIn, tapeGE
             deck.append(rxt)
         deck.append((0, '/'))
     deck.append((0, '/'))
+
+def create_matxsr_input(deck, dat, tapeGENDFIn, tapeGAMINRIn, tapeMATXSOut):
+    groupMap = [-1, -1, 240, 30, 27, 50, 68, 100, 35, 69, 187, 70, 620, 80, 100, 640, 174, 175]
+    dat.numGroups = groupMap[dat.groupOpt]
+    if dat.groupOpt == 1:
+        dat.numGroups = len(dat.groupBdrs) - 1
+
+    deck.append(['matxsr'])
+    deck.append((tapeGENDFIn, tapeGAMINRIn, tapeMATXSOut, '/'))
+    deck.append((1, "'y.zhang cert data'", '/'))
+    deck.append((1, 2, 1, 1))
+    deck.append(["'" + str(dat.numGroups) + '-group ' + dat.nuclideName + ' neutron lib' + "'"])
+    deck.append(["'n'"])
+    deck.append([str(dat.numGroups)])
+    deck.append(("'nscat'", "'ntherm'", '/'))
+    deck.append((1, 1))
+    deck.append((1, 1))
+    deck.append(("'" + dat.nuclideName + "'", dat.mat, dat.mat))
+    
 
 ###############################################################################
 def print_njoy_file(filePath, deck):
@@ -692,6 +729,8 @@ class NJOYTape():
         self.plotrOut = [31, 33, 35, 37]
         self.viewrOut = [32, 34, 36, 38]
         self.purrOut = -39
+        self.matxsOut = 42
+        self.gaminrOut = 0  #no photon data for CERT project
 
 
 def get_temporary_tapes_pendf(tapes, endfThermalTapeList, numThermals):
@@ -753,7 +792,7 @@ def get_temporary_tapes_ace(tapes, pendfOutTape, endfThermalTapeList, numTempera
 
 ###############################################################################
 class NJOYDat():
-    def __init__(self, A=None, Z=None, nuclideName=None, thermalNuclideName=None, thermalFileName=None, endfName=None, endfFile=None, mat=None, aceExt=None, thermList=[0], sig0List=[1e10], groupBdrs=None, groupOpt=0, isFissionable=False, hasDelayedNu=False, hasDelayedChis=False, includeMF6=True, usePURR=True, legendreOrder=0, inelasticMTList=[], thermalMTList=[], matThermalList=[], endfThermalFileList=[]):
+    def __init__(self, A=None, Z=None, nuclideName=None, thermalNuclideName=None, thermalFileName=None, endfName=None, endfFile=None, mat=None, aceExt=None, thermList=[0], sig0List=[1e10], groupBdrs=None, groupOpt=0, isFissionable=False, hasDelayedNu=False, hasDelayedChis=False, includeMF6=True, usePURR=False, legendreOrder=0, inelasticMTList=[], thermalMTList=[], matThermalList=[], endfThermalFileList=[]):
         # General
         # Nuclide information
         self.A = A
@@ -786,11 +825,13 @@ class NJOYDat():
         self.thermalMTList = thermalMTList
         # tolerance
         self.thermrTol = 0.001
+        # inelastic distribution form
+        self.inelasForm = 0
         # maximum energy for thermal treatment (eV) (originally used 1.9; others use 4.0)
         # self.Emax = 2.9
         #self.Emax = 3.3 # works with wiggle room for SHEM-361 and edits-12
         #self.Emax = 3.9 # does not work for ""
-        self.Emax = 3.6 # works for ""
+        self.Emax = 100 # xnjoy_thermr patch allows emax up to 100eV
         #
         # GROUPR
         self.includeMF6 = includeMF6
@@ -801,6 +842,7 @@ class NJOYDat():
         # ign: 1 for custom structure (see manual)
         self.groupOpt = groupOpt
         # iwt: weighting spectrum (see manual)
+        # use iwt = 4 for CERT
         self.weightOpt = 5
         # How many Legendre orders of transfer matrices to output; n in Pn
         self.legendreOrder = legendreOrder
@@ -816,7 +858,11 @@ class NJOYDat():
         # Thermal ACE
         self.numMix = 1 #True except for BeO or C6H6 (Benzene)
         self.numThermalAceBins = 128
-        self.emaxThermalAce = 1000.
+        # self.emaxThermalAce = 1000.
+        # NJOY default to 1000eV, which provides more fidelity in thermal treatment
+        # However, with the latest xnjoy_thermr patch, emax > 20eV will result in
+        # segfault in MCNP runtime.
+        self.emaxThermalAce = 20.
         # ZAIDs for which the thermal ACE treatment applies
         self.ZAIDs = []
 
@@ -841,7 +887,7 @@ def get_num_atoms_in_molecule(inelasticMT):
     return numAtomsInMolecule[inelasticMT]
 
 def get_elastic_option(inelasticMT):
-    if inelasticMT == 221:
+    if inelasticMT == 221 or inelasticMT == 222:  # water (MT222) has not elastic component in NJOY2012
         # Free gas
         return 0
     else:
@@ -854,7 +900,7 @@ def get_inelastic_option(inelasticMT):
         return 1
     else:
         # Read S(alpha, beta)
-        return 4
+        return 2
     #else:
     #    return 0
 

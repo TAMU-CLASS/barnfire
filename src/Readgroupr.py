@@ -200,6 +200,15 @@ def populate_data_dict(data, mfmtsSet, numGroups, numLegMoments, thermList, numS
             rxn['numDNGs'] = 6
         elif mf == 6 and mt == 18:
             rxn['numLegMoments'] = 1
+            rxn['flux'] = np.zeros((actualNumTherm, numGroups))
+            # rxn['lowEnergySpectrum'] = np.zeros((actualNumTherm, numGroups))
+            # rxnDict['lowEnergySpectrum'] = xsDict['lowEnergySpectrum'][::-1].copy()
+            # rxnDict['lowEnergyProd'] = xsDict['lowEnergyProd'][::-1].copy()
+            # rxnDict['highEnergyMatrix'] = xsDict['highEnergyMatrix'][::-1,::-1].copy()
+            # rxnDict['highestHighEnergyGroup'] = numGroups - xsDict['lowestHighEnergyGroup'] - 1
+            # rxnDict['promptChi'] = xsDict['promptChi'][::-1].copy()
+            # rxnDict['promptProd'] = xsDict['promptProd'][::-1].copy()
+            rxn['FissionMatrix'] = np.zeros((actualNumTherm, numGroups, numGroups))
         elif mf == 6:
             #'List' is indexed by temperature
             # Cannot set numLegMoments because some transfer matrices have fewer
@@ -340,15 +349,19 @@ def merge_data_prompt_fission_matrix(data, xsDict):
     mf,mt = xsDict['mf'], xsDict['mt']
     rxnDict = data['rxn'][(mf,mt)]
     numGroups = data['numGroups']
+    thermIndex = 0
+    if rxnDict['numTherm'] != 1:
+        thermIndex = data['thermList'].index(xsDict['temperature'])
+
     #The data is copied, not aliased
-    rxnDict['flux'] = xsDict['flux'][::-1].copy()
-    rxnDict['lowEnergySpectrum'] = xsDict['lowEnergySpectrum'][::-1].copy()
-    rxnDict['lowEnergyProd'] = xsDict['lowEnergyProd'][::-1].copy()
-    rxnDict['highEnergyMatrix'] = xsDict['highEnergyMatrix'][::-1,::-1].copy()
-    rxnDict['highestHighEnergyGroup'] = numGroups - xsDict['lowestHighEnergyGroup'] - 1
-    rxnDict['promptChi'] = xsDict['promptChi'][::-1].copy()
-    rxnDict['promptProd'] = xsDict['promptProd'][::-1].copy()
-    rxnDict['FissionMatrix'] = xsDict['FissionMatrix'][::-1, ::-1].copy()
+    rxnDict['flux'][thermIndex, :] = xsDict['flux'][::-1].copy()
+    # rxnDict['lowEnergySpectrum'] = xsDict['lowEnergySpectrum'][::-1].copy()
+    # rxnDict['lowEnergyProd'] = xsDict['lowEnergyProd'][::-1].copy()
+    # rxnDict['highEnergyMatrix'] = xsDict['highEnergyMatrix'][::-1,::-1].copy()
+    # rxnDict['highestHighEnergyGroup'] = numGroups - xsDict['lowestHighEnergyGroup'] - 1
+    # rxnDict['promptChi'] = xsDict['promptChi'][::-1].copy()
+    # rxnDict['promptProd'] = xsDict['promptProd'][::-1].copy()
+    rxnDict['FissionMatrix'][thermIndex, :, :] = xsDict['FissionMatrix'][::-1, ::-1].copy()
     #lowEnergySpectrum is indexed by (groupTo)
     #highEnergyMatrix is indexed by (groupFrom, groupTo)
     #highEnergyMatrix applies to groups 0 through highestHighEnergyGroup (inclusive)
@@ -1345,10 +1358,10 @@ def lookup_num_sig0(maxNumSig0, mf, mt):
     '''Look up the number of background xs the reaction contains (either maxNumSig0 or 1).'''
     if mf == 3:
         # NJOY 99:
-        mtsAtMultSig0 = {1, 2, 18, 102, 301, 318}
+        # mtsAtMultSig0 = {1, 2, 18, 102, 301, 318}
         # NJOY 2012:
-        #mtsAtMultSig0 = {1, 2, 18, 102, 301, 318}
-        #mtsAtMultSig0 |= {i for i in range(51,91+1)}
+        mtsAtMultSig0 = {1, 2, 18, 102, 301, 318}
+        mtsAtMultSig0 |= {i for i in range(51,91+1)}
         if mt in mtsAtMultSig0:
             return maxNumSig0
         else:
@@ -1372,7 +1385,7 @@ def lookup_num_therm(maxNumTherm, mf, mt):
         else:
             return 1
     elif mf == 6:
-        mtsDependOnT = [2]
+        mtsDependOnT = [2, 18]
         if (mt in mtsDependOnT) or (mt in thermalMTs):
             return maxNumTherm
         else:
@@ -1768,80 +1781,82 @@ def condense_xs(xsDataIn, energyMesh, flux, verbosity):
         numThermRxn = rxn['numTherm']
         numSig0Rxn = rxn['numSig0']
         numLegMomentsRxn = rxn['numLegMoments']
-        #
-        # First, we condense low-energy spectrum by column to an intermediate form (e <- g').
-        lowEnergySpectrumIn = rxnIn['lowEnergySpectrum']
-        lowEnergySpectrum = np.apply_along_axis(condenseFunc, 0, lowEnergySpectrumIn)
-        norm = np.sum(lowEnergySpectrum)
-        if norm:
-            lowEnergySpectrum /= norm
-        rxn['lowEnergySpectrum'] = lowEnergySpectrum
-        #
-        # Second, we condense prompt fission spectrum by column to an intermediate form (e <- g').
-        promptChiIn = rxnIn['promptChi']
-        promptChi = np.apply_along_axis(condenseFunc, 0, promptChiIn)
-        norm = np.sum(promptChi)
-        if norm:
-            promptChi /= norm
-        rxn['promptChi'] = promptChi
-        #
-        # Third, we condense prompt fission nu*sig_f (nu) using flux as weighting
-        promptProdIn = rxnIn['promptProd']
-        iTherm, iSig0 = 0, 0  # The 0th temperature and sig0 index is used for the weighting flux
-        wgt = flux[iTherm, iSig0, :] * promptProdIn
-        norm = elementFlux[iTherm, iSig0, :]
-        rxn['promptProd'] = np.bincount(energyMesh, weights=wgt) / norm
-        #
+        # #
+        # # First, we condense low-energy spectrum by column to an intermediate form (e <- g').
+        # lowEnergySpectrumIn = rxnIn['lowEnergySpectrum']
+        # lowEnergySpectrum = np.apply_along_axis(condenseFunc, 0, lowEnergySpectrumIn)
+        # norm = np.sum(lowEnergySpectrum)
+        # if norm:
+        #     lowEnergySpectrum /= norm
+        # rxn['lowEnergySpectrum'] = lowEnergySpectrum
+        # #
+        # # Second, we condense prompt fission spectrum by column to an intermediate form (e <- g').
+        # promptChiIn = rxnIn['promptChi']
+        # promptChi = np.apply_along_axis(condenseFunc, 0, promptChiIn)
+        # norm = np.sum(promptChi)
+        # if norm:
+        #     promptChi /= norm
+        # rxn['promptChi'] = promptChi
+        # #
+        # # Third, we condense prompt fission nu*sig_f (nu) using flux as weighting
+        # promptProdIn = rxnIn['promptProd']
+        # iTherm, iSig0 = 0, 0  # The 0th temperature and sig0 index is used for the weighting flux
+        # wgt = flux[iTherm, iSig0, :] * promptProdIn
+        # norm = elementFlux[iTherm, iSig0, :]
+        # rxn['promptProd'] = np.bincount(energyMesh, weights=wgt) / norm
+        # #
         # Fourth, we condense the full FissionMatrix
-        FissionMatrix = rxnIn['FissionMatrix']
-          # condense prompt fission matrix by column to an intermediate form (e <- g').
-        FissionMatrixIntermediate = np.apply_along_axis(condenseFunc, 1, FissionMatrix)
-        iTherm, iSig0 = 0, 0  # The 0th temperature and sig0 index is used for the weighting flux
-        wgt = np.dot(np.diag(flux[iTherm, iSig0, :]), FissionMatrixIntermediate[:,:])
-        norm = elementFlux[iTherm, iSig0, :]
-          # final condense for e <- e' (to element, from element).
-        rxn['FissionMatrix'] = np.dot(np.diag(1./norm), np.apply_along_axis(condenseFunc, 0, wgt))
-        #
-        # Fifth, we determine which elements are high-energy elements, if any
-        lastHighGroup = rxnIn['highestHighEnergyGroup']
-        if lastHighGroup == -1:
-            # The high-energy portion does not exist.
-            rxn['highestHighEnergyGroup'] = rxnIn['highestHighEnergyGroup']
-            rxn['highEnergyMatrix'] = rxnIn['highEnergyMatrix']
-        else:
-            highEnergyGroups = np.arange(0, lastHighGroup + 1)
-            highEnergyElements = np.unique(energyMesh[highEnergyGroups])
-            # We assume that the elements are intelligently ordered st low elements have higher energies
-            lastHighElement = highEnergyElements[-1]
-            rxn['highestHighEnergyGroup'] = lastHighElement
-            #
-            # We condense fission matrix by column to an intermediate form (e <- g').
-            highEnergyMatIn = rxnIn['highEnergyMatrix']
-            highEnergyMatIntermediate = np.apply_along_axis(condenseFunc, 1, highEnergyMatIn)
-            #
-            # Finally, we condense the fission matrix by row to the final form (e <- e').
-            # The 0th temperature and sig0 index is used for the weighting flux
-            rxn['highEnergyMatrix'] = np.zeros((lastHighElement+1, numElements))
-            highEnergyMat = rxn['highEnergyMatrix']
-            for elem in range(lastHighElement+1):
-                mask = (energyMesh == elem)
-                groupsInElem = np.where(energyMesh == elem)[0]
-                lowEnergyGroupsInElem = groupsInElem[groupsInElem > lastHighGroup]
-                highEnergyGroupsInElem = groupsInElem[groupsInElem <= lastHighGroup]
-                #
-                wgtHigh = flux[0, 0, highEnergyGroupsInElem]
-                wgtLow = flux[0, 0, lowEnergyGroupsInElem]
-                # The fission matrix in an element with high- and low-energy groups is a
-                # flux-weighted average
-                xsLow = xsData['rxn'][(3,18)]['xs'][0, 0, elem] * xsData['rxn'][(3,452)]['xs'][0, 0, elem]
-                sumLow = 0.
-                if xsLow:
-                    sumLow = xsLow * np.sum(wgtLow)
-                # The intermediate high energy fission matrix is nuSigf_{g'->e}
-                highEnergyMat[elem, :] = (
-                    np.sum(highEnergyMatIntermediate[highEnergyGroupsInElem, :] *
-                        wgtHigh[:, np.newaxis], axis=0) +
-                    sumLow * lowEnergySpectrum ) / (np.sum(wgtLow) + np.sum(wgtHigh))
+        rxn['FissionMatrix'] = np.zeros((numThermRxn, numElements, numElements))
+        for iTherm in range(numThermRxn):
+            FissionMatrix = rxnIn['FissionMatrix'][iTherm, :, :]
+              # condense prompt fission matrix by column to an intermediate form (e <- g').
+            FissionMatrixIntermediate = np.apply_along_axis(condenseFunc, 1, FissionMatrix)
+            # iTherm, iSig0 = 0, 0  # The 0th temperature and sig0 index is used for the weighting flux
+            wgt = np.dot(np.diag(flux[iTherm, iSig0, :]), FissionMatrixIntermediate[:,:])
+            norm = elementFlux[iTherm, iSig0, :]
+              # final condense for e <- e' (to element, from element).
+            rxn['FissionMatrix'][iTherm, :, :] = np.dot(np.diag(1./norm), np.apply_along_axis(condenseFunc, 0, wgt))
+        # #
+        # # Fifth, we determine which elements are high-energy elements, if any
+        # lastHighGroup = rxnIn['highestHighEnergyGroup']
+        # if lastHighGroup == -1:
+        #     # The high-energy portion does not exist.
+        #     rxn['highestHighEnergyGroup'] = rxnIn['highestHighEnergyGroup']
+        #     rxn['highEnergyMatrix'] = rxnIn['highEnergyMatrix']
+        # else:
+        #     highEnergyGroups = np.arange(0, lastHighGroup + 1)
+        #     highEnergyElements = np.unique(energyMesh[highEnergyGroups])
+        #     # We assume that the elements are intelligently ordered st low elements have higher energies
+        #     lastHighElement = highEnergyElements[-1]
+        #     rxn['highestHighEnergyGroup'] = lastHighElement
+        #     #
+        #     # We condense fission matrix by column to an intermediate form (e <- g').
+        #     highEnergyMatIn = rxnIn['highEnergyMatrix']
+        #     highEnergyMatIntermediate = np.apply_along_axis(condenseFunc, 1, highEnergyMatIn)
+        #     #
+        #     # Finally, we condense the fission matrix by row to the final form (e <- e').
+        #     # The 0th temperature and sig0 index is used for the weighting flux
+        #     rxn['highEnergyMatrix'] = np.zeros((lastHighElement+1, numElements))
+        #     highEnergyMat = rxn['highEnergyMatrix']
+        #     for elem in range(lastHighElement+1):
+        #         mask = (energyMesh == elem)
+        #         groupsInElem = np.where(energyMesh == elem)[0]
+        #         lowEnergyGroupsInElem = groupsInElem[groupsInElem > lastHighGroup]
+        #         highEnergyGroupsInElem = groupsInElem[groupsInElem <= lastHighGroup]
+        #         #
+        #         wgtHigh = flux[0, 0, highEnergyGroupsInElem]
+        #         wgtLow = flux[0, 0, lowEnergyGroupsInElem]
+        #         # The fission matrix in an element with high- and low-energy groups is a
+        #         # flux-weighted average
+        #         xsLow = xsData['rxn'][(3,18)]['xs'][0, 0, elem] * xsData['rxn'][(3,452)]['xs'][0, 0, elem]
+        #         sumLow = 0.
+        #         if xsLow:
+        #             sumLow = xsLow * np.sum(wgtLow)
+        #         # The intermediate high energy fission matrix is nuSigf_{g'->e}
+        #         highEnergyMat[elem, :] = (
+        #             np.sum(highEnergyMatIntermediate[highEnergyGroupsInElem, :] *
+        #                 wgtHigh[:, np.newaxis], axis=0) +
+        #             sumLow * lowEnergySpectrum ) / (np.sum(wgtLow) + np.sum(wgtHigh))
 
     return xsData
 
@@ -2041,21 +2056,24 @@ def interpolate_T_sig0_xs(data, desiredT, desiredSig0Vec, outputDict, verbosity=
             # Take a flux-weighted sum over all groups
             # Assumes you have (MF,MT) (3,18) (n,fission) and (3,452) (total nubar)
             flux = data['fluxOut']
+            FissionMatrix = np.zeros((numGroups, numGroups))
 
-            fissionXS = data['rxn'][(3,18)]['xsOut']
-            nuBar = data['rxn'][(3,452)]['xsOut']
-            cutoffGroup = rxn['highestHighEnergyGroup']
-            lowEnergySpectrum = rxn['lowEnergySpectrum']
-            highEnergyMatrix = rxn['highEnergyMatrix']
-            effectiveSpectrum = np.zeros(numGroups)
-            effectiveSpectrum += lowEnergySpectrum * np.sum(
-                flux[cutoffGroup+1:] * fissionXS[cutoffGroup+1:] * nuBar[cutoffGroup+1:])
-            for groupFrom in range(0,cutoffGroup+1):
-                effectiveSpectrum += highEnergyMatrix[groupFrom, :] * flux[groupFrom]
-            effectiveSpectrum /= np.sum(effectiveSpectrum)
-            rxn['xsOut'] = effectiveSpectrum
-
-            FissionMatrix = rxn['FissionMatrix']
+            # fissionXS = data['rxn'][(3,18)]['xsOut']
+            # nuBar = data['rxn'][(3,452)]['xsOut']
+            # cutoffGroup = rxn['highestHighEnergyGroup']
+            # lowEnergySpectrum = rxn['lowEnergySpectrum']
+            # highEnergyMatrix = rxn['highEnergyMatrix']
+            # effectiveSpectrum = np.zeros(numGroups)
+            # effectiveSpectrum += lowEnergySpectrum * np.sum(
+            #     flux[cutoffGroup+1:] * fissionXS[cutoffGroup+1:] * nuBar[cutoffGroup+1:])
+            # for groupFrom in range(0,cutoffGroup+1):
+            #     effectiveSpectrum += highEnergyMatrix[groupFrom, :] * flux[groupFrom]
+            # effectiveSpectrum /= np.sum(effectiveSpectrum)
+            # rxn['xsOut'] = effectiveSpectrum
+            for thermFrac, thermIndex in zip(thermFractions, thermIndices):
+                FissionMatrix += thermFrac * rxn['FissionMatrix'][thermIndex, :, :]
+            
+            rxn['FissionMatrixOut'] = FissionMatrix
             # Compute total fission source = F'*phi
             F_phi = np.dot(flux, FissionMatrix)
             # prompt Chi is normalized total fission source
@@ -2094,14 +2112,15 @@ def interpolate_T_sig0_xs(data, desiredT, desiredSig0Vec, outputDict, verbosity=
 
         flux = data['fluxOut']
         fission_xs = data['rxn'][(3 ,18)]['xsOut']
-        fission_x_prompt = data['rxn'][(6, 18)]['FissionMatrix']
+        fission_x_prompt = data['rxn'][(6, 18)]['FissionMatrixOut']
         promptProd = data['rxn'][(6, 18)]['promptProd']
         nu_prompt = promptProd/fission_xs
         nu_delayed = data['rxn'][(3 ,455)]['xsOut']
         chis_delayed = data['rxn'][(5 ,455)]['delayedChi']
         chi_delayed = np.sum(chis_delayed, axis=0)
 
-        nu_ss = nu_prompt + nu_delayed
+#debug       nu_ss = nu_prompt + nu_delayed
+        nu_ss = (nu_prompt + nu_delayed) * data['rxn'][(3, 18)]['xsOut']
         n_per_gout = ( np.dot(flux, fission_x_prompt) + \
                    chi_delayed*np.sum(nu_delayed*fission_xs*flux) )
         chi_ss = n_per_gout/np.sum(n_per_gout)
@@ -2210,8 +2229,14 @@ def write_pdt_xs(filePath, data, temperature, format='csr', whichXS='all', fromF
         if (3,18) in mfmts:
             # add MT 18
             numXS += 1
+        if (3, 452) in mfmts:
+            # add MT 452 (total nu)
+            numXS += 1
         if (3, 455) in mfmts:
             # add MT 455 (delayed nu)
+            numXS += 1
+        if (3, 456) in mfmts:
+            # add MT 456 (prompt nu)
             numXS += 1
         if (5,455) in mfmts:
             # Add decayConst and delayedChi for delay fission neutrons
@@ -2287,8 +2312,12 @@ def write_pdt_xs(filePath, data, temperature, format='csr', whichXS='all', fromF
         mtsForMF3 = []
         if (3,18) in mfmts:
             mtsForMF3 = [18]
+        if (3,452) in mfmts:
+            mtsForMF3.append(452)
         if (3,455) in mfmts:
             mtsForMF3.append(455)
+        if (3,456) in mfmts:
+            mtsForMF3.append(456)
         if whichXS.lower().strip() in ['all', 'everything']:
             mtsForMF3 = [mt for (mf,mt) in sorted(mfmts) if (mf == 3 and mt != 1)]
         elif whichXS.lower().strip() in 'invel':
@@ -2320,7 +2349,7 @@ def write_pdt_xs(filePath, data, temperature, format='csr', whichXS='all', fromF
             fid.write(multiline_string(xs, 20, 5, 12))
             # write total fission transfer matrix (chi dot nusigf)
             pdtMT = 2518
-            xs = data['rxn'][(6,18)]['FissionMatrix']
+            xs = data['rxn'][(6,18)]['FissionMatrixOut']
             fid.write('MT {0}, Moment {1}\n'.format(pdtMT, 0))
             for g in range(numGroups):
                 fid.write('{0}, first, last: '.format('  Sink'))

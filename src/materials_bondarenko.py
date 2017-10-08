@@ -256,9 +256,9 @@ def form_and_print_macroscopic_xs(dirr, ZAList, material, numGroups, verbosity=F
     for MT in MTsAvg:
         if np.all(norms[MT]>0.0):
             xsOut[MT] /= norms[MT]
-
+    
     # Recompute steady-state nu and chi
-    if all(MTs in xsIn for MTs in [MTnuSigF, MTfission, MTssNu, MTssChi]):
+    if all(mts in MTs for mts in [MTnuSigF, MTfission, MTssNu, MTssChi]):
         flux = xsOut[MTwgt]
         promptProd = xsOut[MTnuSigF]
         fission_xs = xsOut[MTfission]
@@ -268,7 +268,7 @@ def form_and_print_macroscopic_xs(dirr, ZAList, material, numGroups, verbosity=F
         fission_x_prompt = xsOut[MTfissionMatrix]
 
         nu_prompt = promptProd/fission_xs
-        nu_ss = nu_prompt + nu_delayed
+        nu_ss = (nu_prompt + nu_delayed) * fission_xs
         n_per_gout = ( np.dot(fission_x_prompt, flux) + \
                        chi_delayed*np.sum(nu_delayed*fission_xs*flux) )
         chi_ss = n_per_gout/np.sum(n_per_gout)
